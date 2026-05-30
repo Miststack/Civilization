@@ -11,6 +11,11 @@ from models import Action, ActionType, BuildingType, TechType
 from planned_search_agent import PlannedSearchAgent, SearchConfig
 from random_agent import RandomAgent
 
+try:
+    from il.learned_agent import LearnedAgent
+except ImportError:
+    LearnedAgent = None  # type: ignore[misc, assignment]
+
 
 def _pause_before_exit() -> None:
     """
@@ -181,7 +186,8 @@ def prompt_play_mode() -> str:
         print("  2 — 随机策略（自动下棋）")
         print("  3 — 贪心策略（自动，启发式规则）")
         print("  4 — 计划束搜索（PlannedSearchAgent，多步前瞻）")
-        raw = input("请选择 [1/2/3/4]: ").strip()
+        print("  5 — 模仿学习策略（需 data/il_policy.pt）")
+        raw = input("请选择 [1/2/3/4/5]: ").strip()
         if raw == "1":
             return "human"
         if raw == "2":
@@ -190,7 +196,9 @@ def prompt_play_mode() -> str:
             return "greedy"
         if raw == "4":
             return "planned"
-        print("请输入 1～4 之间的数字。")
+        if raw == "5":
+            return "learned"
+        print("请输入 1～5 之间的数字。")
 
 
 def play_agent(state: GameState, agent: object, *, quiet: bool = False) -> None:
@@ -223,9 +231,27 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=None, help="随机种子（可复现地图）")
     parser.add_argument(
         "--play",
-        choices=("human", "random", "greedy", "planned"),
+        choices=("human", "random", "greedy", "planned", "learned"),
         default=None,
-        help="human / random / greedy / planned",
+        help="human / random / greedy / planned / learned",
+    )
+    parser.add_argument(
+        "--il-weights",
+        type=str,
+        default="data/il_policy.pt",
+        help="仅 learned：模仿学习模型权重路径",
+    )
+    parser.add_argument(
+        "--il-device",
+        type=str,
+        default=None,
+        help="仅 learned：cuda / cpu，默认自动",
+    )
+    parser.add_argument(
+        "--il-top-k",
+        type=int,
+        default=1,
+        help="仅 learned：top-k 启发式重排（默认 1=关闭；>1 实验用）",
     )
     parser.add_argument(
         "--agent-seed",
@@ -311,6 +337,14 @@ def main() -> None:
         if args.max_horizon is not None and args.max_horizon < 1:
             parser.error("--max-horizon 必须为正整数")
         agent = PlannedSearchAgent(config=search_cfg, rng=agent_rng)
+    elif mode == "learned":
+        if LearnedAgent is None:
+            parser.error("learned 模式需要 PyTorch，请先: python -m pip install torch")
+        agent = LearnedAgent(
+            weights_path=args.il_weights,
+            device=args.il_device,
+            top_k_rerank=args.il_top_k,
+        )
     else:
         raise AssertionError(f"未知自动模式: {mode}")
 
@@ -318,6 +352,7 @@ def main() -> None:
         "random": "随机",
         "greedy": "贪心",
         "planned": "计划束搜索",
+        "learned": "模仿学习",
     }[mode]
     extra = ""
     if mode == "planned" and isinstance(agent, PlannedSearchAgent):
