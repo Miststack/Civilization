@@ -5,11 +5,10 @@ import random
 import sys
 from typing import List
 
-from game import GameConfig, GameState
-from greedy_agent import GreedyAgent
-from models import Action, ActionType, BuildingType, TechType
-from planned_search_agent import PlannedSearchAgent, SearchConfig
-from random_agent import RandomAgent
+from agents import GreedyAgent, RandomAgent
+from engine import GameConfig, GameState
+from engine.models import Action, ActionType, BuildingType, TechType
+from search import PlannedSearchAgent, SearchConfig
 
 try:
     from il.learned_agent import LearnedAgent

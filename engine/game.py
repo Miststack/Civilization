@@ -3,8 +3,8 @@ import copy
 import random
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, cast, Callable
-import map as map_module
-from models import (
+from engine import map as map_module
+from engine.models import (
     BUILDING_DEFS,
     BUILD_TERRAINS,
     CITY_BUILD_BASE_COST,

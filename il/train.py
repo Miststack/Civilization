@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset, random_split
 
-from game import GameConfig, GameState
+from engine.game import GameConfig, GameState
 from il.encoding import ACTION_DIM, STATE_DIM
 from il.learned_agent import LearnedAgent
 from il.model import PolicyNet, masked_cross_entropy

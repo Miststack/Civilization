@@ -4,11 +4,11 @@ import random
 
 import pytest
 
-from game import GameConfig, GameState
-from greedy_agent import GreedyAgent
-from models import Action
-from planned_search_agent import PlannedSearchAgent, SearchConfig, expand_trace, pick_best_first_move
-from search_rules import effective_legal
+from engine.game import GameConfig, GameState
+from agents.greedy import GreedyAgent
+from engine.models import Action
+from search import PlannedSearchAgent, SearchConfig, expand_trace, pick_best_first_move
+from search.rules import effective_legal
 
 
 def test_planned_agent_choose_returns_action() -> None:
@@ -28,7 +28,7 @@ def test_planned_agent_terminal_raises() -> None:
 
 
 def test_expand_trace_sets_first_move() -> None:
-    from planned_search_agent import SearchTrace
+    from search.agent import SearchTrace
 
     s = GameState(GameConfig(8, 10, seed=0))
     root = SearchTrace(state=s, first=None)
@@ -38,7 +38,7 @@ def test_expand_trace_sets_first_move() -> None:
 
 
 def test_pick_best_first_move_from_terminal_traces() -> None:
-    from planned_search_agent import SearchTrace
+    from search.agent import SearchTrace
 
     s = GameState(GameConfig(8, 2, seed=0))
     s.do_turn(Action.skip())

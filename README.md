@@ -113,19 +113,19 @@ python main.py --seed 0 --play planned --map-size 10 --turns 30 --quiet
 
 ## 项目结构（简要）
 
-| 文件 / 目录                                                  | 说明                                  |
-|----------------------------------------------------------|-------------------------------------|
-| `main.py`                                                | 入口、命令行与交互                           |
-| `game.py`                                                | 对局规则、`GameState`、`score()`          |
-| `map.py` / `models.py`                                   | 地图生成与数据定义                           |
-| `random_agent.py` / `greedy_agent.py`                    | 随机 / 规则贪心基线                         |
-| `planned_search_agent.py`                                | 计划束搜索智能体                            |
-| `search_rules.py` / `search_eval.py` / `search_prune.py` | 搜索用合法动作、估值、剪枝                       |
-| `il/`                                                    | 模仿学习：编码、录数据、训练、`LearnedAgent`        |
-| `data/`                                                  | IL 本地生成数据（见 `data/README.md`，不入 Git）  |
-| `课程设计报告.md`                                              | 课程设计报告（含 §8 实验与 §10 提交清单）           |
-| `seed_scores.csv`                                        | 基线实验数据（见下）                          |
-| `tests/`                                                 | `pytest` 单元测试（**AI 辅助编写**，见报告 §3.2） |
+| 文件 / 目录 | 说明 |
+|-------------|------|
+| `main.py` | 入口、命令行与交互 |
+| `engine/` | 游戏引擎：`game.py`（对局规则）、`map.py`、`models.py` |
+| `agents/` | 基线智能体：`random.py`、`greedy.py` |
+| `search/` | 计划束搜索：`agent.py`、`rules.py`、`eval.py`、`prune.py` |
+| `il/` | 模仿学习：编码、录数据、训练、`LearnedAgent` |
+| `data/` | IL 本地生成数据（见 `data/README.md`，不入 Git） |
+| `课程设计报告.md` | 课程设计报告（含 §8 实验与 §10 提交清单） |
+| `seed_scores.csv` | 基线实验数据（见下） |
+| `tests/` | `pytest` 单元测试（**AI 辅助编写**，见报告 §3.2） |
+
+运行与测试时**工作目录仍为项目根**（与 `main.py` 同级），以便 `python main.py` 与 `python -m il.*` 能解析 `engine`、`agents`、`search` 包。
 
 ---
 

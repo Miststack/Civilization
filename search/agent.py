@@ -1,10 +1,10 @@
 """
-planned_search_agent.py — 计划型束搜索智能体
+search/agent.py — 计划型束搜索智能体
 
 【模块依赖】
-    search_rules  — 合法动作与视界
-    search_eval   — 终局分与启发式
-    search_prune  — 动作剪枝与排序
+    search.rules  — 合法动作与视界
+    search.eval   — 终局分与启发式
+    search.prune  — 动作剪枝与排序
 """
 from __future__ import annotations
 
@@ -12,12 +12,12 @@ import random
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
-from game import GameState
-from models import Action
+from engine.game import GameState
+from engine.models import Action
 
-from search_eval import heuristic_value, terminal_value
-from search_prune import rank_actions_for_expansion
-from search_rules import effective_legal, has_non_skip_choice, remaining_decision_steps
+from search.eval import heuristic_value, terminal_value
+from search.prune import rank_actions_for_expansion
+from search.rules import effective_legal, has_non_skip_choice, remaining_decision_steps
 
 
 @dataclass(frozen=True)
@@ -171,6 +171,6 @@ def fallback_greedy_action(state: GameState, rng: Optional[random.Random] = None
     """
     兜底：委托 GreedyAgent.choose（测试或异常时用）。
     """
-    from greedy_agent import GreedyAgent
+    from agents.greedy import GreedyAgent
 
     return GreedyAgent(rng).choose(state)

@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from game import GameConfig, GameState
+from engine.game import GameConfig, GameState
 from main import _action_label, _partition_legal
-from models import Action, ActionType, BuildingType, TechType
+from engine.models import Action, ActionType, BuildingType, TechType
 
 
 def test_action_label_variants() -> None:

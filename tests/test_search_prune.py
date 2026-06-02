@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from game import GameConfig, GameState
-from models import Action, ActionType
-from search_prune import (
+from engine.game import GameConfig, GameState
+from engine.models import Action, ActionType
+from search.prune import (
     action_sort_key,
     prune_build_city_actions,
     rank_actions_for_expansion,

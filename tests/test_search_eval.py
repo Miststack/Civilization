@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from game import GameConfig, GameState
-from models import Action, TechType
-from search_eval import (
+from engine.game import GameConfig, GameState
+from engine.models import Action, TechType
+from search.eval import (
     action_step_delta,
     heuristic_value,
     terminal_value,

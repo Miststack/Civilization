@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 from typing import List, Sequence, Tuple
-from game import GameState
-from models import Action, ActionType
-from search_eval import heuristic_value
+from engine.game import GameState
+from engine.models import Action, ActionType
+from search.eval import heuristic_value
 
 
 def action_sort_key(action: Action) -> Tuple:

@@ -4,8 +4,8 @@ from typing import List, Sequence
 
 import numpy as np
 
-from game import GameState
-from models import Action, ActionType, BuildingType, RESOURCE_KEYS, TechType, TerrainType
+from engine.game import GameState
+from engine.models import Action, ActionType, BuildingType, RESOURCE_KEYS, TechType, TerrainType
 
 MAX_MAP = 12
 NUM_BUILDINGS = len(BuildingType)

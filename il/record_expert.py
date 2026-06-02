@@ -9,9 +9,9 @@ from pathlib import Path
 
 import numpy as np
 
-from game import GameConfig, GameState
+from engine.game import GameConfig, GameState
 from il.encoding import action_to_index, encode_state, legal_action_mask
-from planned_search_agent import PlannedSearchAgent, SearchConfig
+from search import PlannedSearchAgent, SearchConfig
 
 
 def collect_game(

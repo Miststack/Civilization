@@ -4,8 +4,8 @@ import random
 
 import pytest
 
-from map import MapGenConfig, MapGenerator, generate_map, format_map
-from models import TerrainType
+from engine.map import MapGenConfig, MapGenerator, generate_map, format_map
+from engine.models import TerrainType
 
 
 def test_map_gen_config_invalid_size() -> None:

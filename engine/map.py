@@ -1,7 +1,7 @@
 import random
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Sequence
-from models import BUILD_TERRAINS, TERRAIN_CHARS, TerrainType
+from engine.models import BUILD_TERRAINS, TERRAIN_CHARS, TerrainType
 @dataclass                     #使用dataclass自动生成初始化和表示方法
 class MapGenConfig:
     size: int=10               #地图边长，默认10

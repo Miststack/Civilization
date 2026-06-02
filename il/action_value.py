@@ -1,8 +1,8 @@
 ﻿from __future__ import annotations
 
-from game import GameState
-from models import Action
-from search_eval import heuristic_value
+from engine.game import GameState
+from engine.models import Action
+from search.eval import heuristic_value
 
 
 def heuristic_step_delta(state: GameState, action: Action) -> int:

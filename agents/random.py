@@ -4,8 +4,8 @@ from __future__ import annotations
 import random
 from typing import Optional
 
-from game import GameState
-from models import Action
+from engine.game import GameState
+from engine.models import Action
 
 class RandomAgent:
     def __init__(self, rng: Optional[random.Random] = None) -> None:

@@ -14,8 +14,8 @@ Baseline 规则智能体
 from __future__ import annotations
 import random
 from typing import Iterable, List, Optional
-from game import GameState
-from models import Action, ActionType, BuildingType, TechType
+from engine.game import GameState
+from engine.models import Action, ActionType, BuildingType, TechType
 
 
 def _legal_list(state: GameState) -> List[Action]:

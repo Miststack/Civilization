@@ -6,11 +6,11 @@ from typing import Optional, Sequence
 import torch
 import torch.nn.functional as F
 
-from game import GameState
+from engine.game import GameState
 from il.action_value import pick_best_by_heuristic
 from il.encoding import action_to_index, encode_state, index_to_action, legal_action_mask
 from il.model import PolicyNet
-from models import Action
+from engine.models import Action
 
 
 class LearnedAgent:
@@ -53,7 +53,7 @@ class LearnedAgent:
 
     def _fallback_agent(self):
         if self._fallback is None:
-            from greedy_agent import GreedyAgent
+            from agents.greedy import GreedyAgent
 
             self._fallback = GreedyAgent(None)
         return self._fallback

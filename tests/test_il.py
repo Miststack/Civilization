@@ -5,8 +5,8 @@ import importlib.util
 import numpy as np
 import pytest
 
-from game import GameConfig, GameState
-from greedy_agent import GreedyAgent
+from engine.game import GameConfig, GameState
+from agents.greedy import GreedyAgent
 from il.encoding import (
     ACTION_DIM,
     STATE_DIM,
@@ -15,7 +15,7 @@ from il.encoding import (
     index_to_action,
     legal_action_mask,
 )
-from models import Action
+from engine.models import Action
 
 
 def test_encode_state_dim() -> None:

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from game import GameConfig, GameState
-from models import (
+from engine.game import GameConfig, GameState
+from engine.models import (
     Action,
     CITY_FIXED_YIELD,
     TECH_COST,

@@ -3,8 +3,8 @@
 """
 from __future__ import annotations
 
-from game import GameState
-from models import Action, BuildingType, BUILDING_DEFS
+from engine.game import GameState
+from engine.models import Action, BuildingType, BUILDING_DEFS
 
 
 def terminal_value(state: GameState) -> int:

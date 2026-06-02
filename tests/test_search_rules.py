@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from game import GameConfig, GameState
-from models import Action, ActionType
-from search_rules import effective_legal, has_non_skip_choice, remaining_decision_steps
+from engine.game import GameConfig, GameState
+from engine.models import Action, ActionType
+from search.rules import effective_legal, has_non_skip_choice, remaining_decision_steps
 
 
 def test_last_turn_excludes_build_city() -> None:

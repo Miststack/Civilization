@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from typing import List, Sequence
 
-from game import GameState
-from models import Action, ActionType
+from engine.game import GameState
+from engine.models import Action, ActionType
 
 
 def effective_legal(state: GameState) -> List[Action]:
