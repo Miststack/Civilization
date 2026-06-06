@@ -2,7 +2,7 @@ from __future__ import annotations
 import copy
 import random
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, cast, Callable
+from typing import Dict, FrozenSet, Iterable, List, Optional, Sequence, Set, Tuple, cast, Callable
 from engine import map as map_module
 from engine.models import (
     BUILDING_DEFS,
@@ -210,6 +210,87 @@ class GameState:
                 return c
         return None
 
+    def _city_center_cells(self) -> Set[Tuple[int, int]]:
+        return {(c.x, c.y) for c in self.cities}
+
+    def _occupied_building_cells(self) -> Set[Tuple[int, int]]:
+        occupied: Set[Tuple[int, int]] = set()
+        for city in self.cities:
+            for x, y in city.building_tiles.values():
+                occupied.add((x, y))
+        return occupied
+
+    def _building_allowed_terrains(self, building: BuildingType) -> FrozenSet[TerrainType]:
+        definition = BUILDING_DEFS[building]
+        terrains = definition.get("terrains")
+        if terrains is None:
+            return frozenset(TerrainType)
+        assert isinstance(terrains, frozenset)
+        return terrains
+
+    def legal_building_cells(
+        self, city_id: int, building: Optional[BuildingType] = None
+    ) -> List[Tuple[int, int]]:
+        """某座城市可放置建筑的格子：3×3 内、非城心、未被占用，且地形符合建筑要求。"""
+        city = self._city_by_id(city_id)
+        if city is None:
+            return []
+        allowed_terrains = (
+            self._building_allowed_terrains(building) if building is not None else None
+        )
+        centers = self._city_center_cells()
+        occupied = self._occupied_building_cells()
+        pending = {(px, py) for px, py, _ in self.pending_city_projects}
+        cells: List[Tuple[int, int]] = []
+        for nx, ny in self._city_area_cells(city.x, city.y):
+            if (nx, ny) in centers or (nx, ny) in occupied or (nx, ny) in pending:
+                continue
+            if allowed_terrains is not None and self.grid[ny][nx] not in allowed_terrains:
+                continue
+            cells.append((nx, ny))
+        return cells
+
+    def _auto_building_placement(
+        self, city_id: int, building: BuildingType
+    ) -> Optional[Tuple[int, int]]:
+        cells = self.legal_building_cells(city_id, building)
+        if not cells:
+            return None
+        terrain_pref: Dict[BuildingType, Dict[TerrainType, int]] = {
+            BuildingType.FARM: {TerrainType.PLAIN: 3, TerrainType.RIVER: 2},
+            BuildingType.LUMBER_MILL: {TerrainType.FOREST: 3},
+            BuildingType.MINE: {TerrainType.MOUNTAIN: 3},
+            BuildingType.LIBRARY: {TerrainType.RIVER: 2, TerrainType.PLAIN: 1},
+        }
+        prefs = terrain_pref.get(building, {})
+        best_score = float("-inf")
+        best: List[Tuple[int, int]] = []
+        for x, y in cells:
+            score = float(prefs.get(self.grid[y][x], 0))
+            if score > best_score:
+                best_score = score
+                best = [(x, y)]
+            elif score == best_score:
+                best.append((x, y))
+        return self.rng.choice(best)
+
+    def can_place_building(
+        self, city_id: int, building: BuildingType, x: int, y: int
+    ) -> Tuple[bool, str]:
+        ok, reason = self.can_build_building(city_id, building)
+        if not ok:
+            return ok, reason
+        city = self._city_by_id(city_id)
+        if city is None:
+            return False, "城市不存在"
+        if (x, y) not in self._city_area_cells(city.x, city.y):
+            return False, "超出城市范围"
+        if self.grid[y][x] not in self._building_allowed_terrains(building):
+            return False, "该地形不能建造此建筑"
+        if (x, y) not in self.legal_building_cells(city_id, building):
+            return False, "该格不能放置建筑"
+        return True, "OK"
+
     def _create_city(self, x: int, y: int) -> City:
         """创建城市并分配id"""
         city = City(city_id=self._next_city_id, x=x, y=y)
@@ -374,18 +455,25 @@ class GameState:
         if action.type == ActionType.BUILD_BUILDING:
             if action.city_id is None or action.building is None:
                 return "建筑参数不完整"
-            ok,reason=self.can_build_building(action.city_id,action.building)
+            city = self._city_by_id(action.city_id)
+            assert city is not None
+            px, py = action.x, action.y
+            if px is None or py is None:
+                placement = self._auto_building_placement(action.city_id, action.building)
+                if placement is None:
+                    return "非法动作(建造): 没有可放置的格子"
+                px, py = placement
+            ok, reason = self.can_place_building(action.city_id, action.building, px, py)
             if not ok:
                 return f"非法动作(建造): {reason}"
-            city=self._city_by_id(action.city_id)
-            assert city is not None
-            definition =BUILDING_DEFS[action.building]
+            definition = BUILDING_DEFS[action.building]
             costs = definition["cost"]
             assert isinstance(costs, dict)
-            for k,v in costs.items():
-                self.resources[k]-=int(v)
+            for k, v in costs.items():
+                self.resources[k] -= int(v)
             city.buildings.add(action.building)
-            return f"城市#{city.city_id} 建造 {action.building.value}"
+            city.building_tiles[action.building] = (px, py)
+            return f"城市#{city.city_id} 在 ({px},{py}) 建造 {action.building.value}"
         if action.type == ActionType.RESEARCH:
             if action.tech is None:
                 return "科技为空"
@@ -411,16 +499,31 @@ class GameState:
             result=f"{result}|建筑完工：{done}"
         return result
 
+    def score_breakdown(self) -> Dict[str, int]:
+        """终局得分分项，与 `score()` 公式一致。"""
+        city_count = len(self.cities)
+        building_count = sum(len(c.buildings) for c in self.cities)
+        tech_count = len(self.tech_unlocked)
+        resource_part = (
+            self.resources["food"]
+            + self.resources["wood"]
+            + self.resources["ore"]
+            + self.resources["science"]
+        ) // 4
+        return {
+            "cities": 20 * city_count,
+            "buildings": 5 * building_count,
+            "techs": 8 * tech_count,
+            "resources": resource_part,
+        }
+
     def score(self) -> int:
         """
         阶段一建议评分函数：
         Score = 20*城市数 + 5*建筑数 + 8*科技数 + floor((food+wood+ore+science)/4)
         """
-        city_count = len(self.cities)
-        building_count = sum(len(c.buildings) for c in self.cities)
-        tech_count = len(self.tech_unlocked)
-        resource_part = (self.resources["food"] + self.resources["wood"] + self.resources["ore"] + self.resources["science"]) // 4
-        return 20 * city_count + 5 * building_count + 8 * tech_count + resource_part
+        parts = self.score_breakdown()
+        return parts["cities"] + parts["buildings"] + parts["techs"] + parts["resources"]
 
     def city_positions(self) -> Sequence[Tuple[int, int]]:
         """返回全部城市坐标，主要用于地图渲染。"""

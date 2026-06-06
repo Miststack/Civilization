@@ -16,3 +16,11 @@ htmlcov/
 # IL training artifacts (keep data/README.md)
 data/*
 !data/README.md
+
+# 游戏存档
+saves/
+
+# 本地临时文件
+log.log
+_recover/
+ui/pygame_app_recovered.py

@@ -15,6 +15,11 @@ try:
 except ImportError:
     LearnedAgent = None  # type: ignore[misc, assignment]
 
+try:
+    from ui.pygame_app import run_pygame_game
+except ImportError:
+    run_pygame_game = None  # type: ignore[misc, assignment]
+
 
 def _pause_before_exit() -> None:
     """
@@ -56,6 +61,22 @@ def _partition_legal(state: GameState) -> tuple[List[Action], List[Action], List
         elif a.type == ActionType.RESEARCH:
             research.append(a)
     return skip_a, build_city, build_b, research
+
+
+def _pick_building_placement(state: GameState, action: Action) -> Action | None:
+    if action.city_id is None or action.building is None:
+        return None
+    cells = state.legal_building_cells(action.city_id, action.building)
+    if not cells:
+        print("该城市没有可放置建筑的格子。")
+        return None
+    options = [
+        Action.build_building(action.city_id, action.building, x, y) for x, y in cells
+    ]
+    return _pick_from_list(
+        options,
+        f"城市 #{action.city_id} 建造 {action.building.value} — 选择落点:",
+    )
 
 
 def _pick_from_list(items: List[Action], title: str) -> Action | None:
@@ -132,7 +153,10 @@ def play(state: GameState) -> None:
                 if not buildings:
                     print("当前没有可建造的建筑。")
                     continue
-                action = _pick_from_list(buildings, "可选建造:")
+                picked = _pick_from_list(buildings, "可选建造:")
+                if picked is None:
+                    continue
+                action = _pick_building_placement(state, picked)
                 if action is None:
                     continue
                 break
@@ -260,6 +284,29 @@ def main() -> None:
     )
     parser.add_argument("--quiet", action="store_true", help="自动模式少打印，只看最终得分等")
     parser.add_argument(
+        "--gui",
+        action="store_true",
+        help="使用 Pygame 图形界面（需 pip install pygame）",
+    )
+    parser.add_argument(
+        "--gui-delay",
+        type=int,
+        default=450,
+        help="仅 --gui 旁观模式：每回合间隔毫秒（默认 450）",
+    )
+    parser.add_argument(
+        "--light",
+        action="store_true",
+        help="图形界面使用浅色主题（也可在游戏中按 T 或侧栏按钮切换）",
+    )
+    parser.add_argument(
+        "--gui-scale",
+        type=float,
+        default=1.0,
+        metavar="FACTOR",
+        help="图形界面缩放（默认 1.0；范围 0.85~2.0，如 1.25 更大）",
+    )
+    parser.add_argument(
         "--beam",
         type=int,
         default=None,
@@ -289,13 +336,81 @@ def main() -> None:
         if not (8 <= args.map_size <= 12):
             parser.error("--map-size 必须在 8~12 之间")
         map_size = args.map_size
+    elif args.gui:
+        map_size = 10
     else:
         print("欢迎来到简化文明。")
         map_size = prompt_map_size()
 
-    mode = args.play if args.play is not None else prompt_play_mode()
+    if args.play is not None:
+        mode = args.play
+    elif args.gui:
+        mode = "human"
+    else:
+        mode = prompt_play_mode()
     cfg = GameConfig(map_size=map_size, total_turns=args.turns, seed=args.seed)
     state = GameState(cfg)
+
+    if args.gui:
+        if run_pygame_game is None:
+            parser.error(
+                "图形界面需要 Pygame。请执行: python -m pip install pygame"
+                "（Python 3.14 请用: python -m pip install pygame-ce）"
+            )
+        print("正在启动 Pygame 图形界面…")
+        agent_for_gui: object | None = None
+        gui_title = "简化文明"
+        if mode != "human":
+            if args.agent_seed is not None:
+                agent_rng = random.Random(args.agent_seed)
+            elif args.seed is not None:
+                agent_rng = random.Random(args.seed + 1)
+            else:
+                agent_rng = random.Random()
+            if mode == "random":
+                agent_for_gui = RandomAgent(agent_rng)
+                gui_title = "简化文明 — 随机策略"
+            elif mode == "greedy":
+                agent_for_gui = GreedyAgent(agent_rng)
+                gui_title = "简化文明 — 贪心策略"
+            elif mode == "planned":
+                search_defaults = SearchConfig()
+                search_cfg = SearchConfig(
+                    beam=args.beam if args.beam is not None else search_defaults.beam,
+                    branch=args.branch if args.branch is not None else search_defaults.branch,
+                    max_city_candidates=(
+                        args.max_city_candidates
+                        if args.max_city_candidates is not None
+                        else search_defaults.max_city_candidates
+                    ),
+                    max_horizon=args.max_horizon,
+                )
+                agent_for_gui = PlannedSearchAgent(config=search_cfg, rng=agent_rng)
+                gui_title = "简化文明 — 计划束搜索"
+            elif mode == "learned":
+                if LearnedAgent is None:
+                    parser.error("learned 模式需要 PyTorch，请先: python -m pip install torch")
+                agent_for_gui = LearnedAgent(
+                    weights_path=args.il_weights,
+                    device=args.il_device,
+                    top_k_rerank=args.il_top_k,
+                )
+                gui_title = "简化文明 — 模仿学习"
+        try:
+            score = run_pygame_game(
+                state,
+                agent=agent_for_gui,
+                auto_delay_ms=0 if mode == "human" else max(0, args.gui_delay),
+                title=gui_title,
+                light_theme=args.light,
+                gui_scale=max(0.85, min(2.0, args.gui_scale)),
+                play_mode=mode,
+            )
+            print(f"最终得分: {score}")
+        except (KeyboardInterrupt, EOFError):
+            print("\n已中断退出。")
+            sys.exit(0)
+        return
 
     if mode == "human":
         print("\n每回合先选动作，结算后进入下一回合。")

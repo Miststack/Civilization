@@ -9,7 +9,7 @@
 | **操作系统**   | Windows / macOS / Linux 均可                       |
 | **Python** | **3.10 及以上**（推荐 3.12+；开发验证过 3.14）                |
 | **标准库**    | 运行游戏**仅需** Python 自带标准库，**不必** `pip install` 任何包 |
-| **可选**     | 单元测试需 **`pytest`**；模仿学习需 **`torch`**、**`numpy`**（见下文） |
+| **可选**     | 单元测试需 **`pytest`**；图形界面需 **`pygame`** 或 **`pygame-ce`**；模仿学习需 **`torch`**、**`numpy`**（见下文） |
 
 检查 Python 是否可用：
 
@@ -57,6 +57,11 @@ py main.py
 | Greedy 规则 baseline 自动对局           | `python main.py --map-size 10 --turns 30 --seed 0 --play greedy --quiet`                      |
 | 计划束搜索自动对局（推荐加 `--quiet`）          | `python main.py --map-size 10 --turns 30 --seed 0 --play planned --quiet`                     |
 | 模仿学习自动对局（需先训练 `data/il_policy.pt`） | `python main.py --map-size 10 --turns 30 --seed 0 --play learned --quiet`                     |
+| **Pygame 图形界面（手动）**              | `python main.py --gui --map-size 10 --turns 30 --seed 42 --play human`                        |
+| **快捷启动图形界面**（默认 10×10 / 30 回合） | `python run_gui.py`                                                                           |
+| 图形界面 + 浅色主题                        | `python run_gui.py --light` 或 `python main.py --gui --light --map-size 10 --play human`      |
+| 图形界面旁观自动策略                         | `python main.py --gui --map-size 10 --turns 30 --seed 0 --play greedy --gui-delay 500`        |
+| 图形界面旁观计划搜索                         | `python main.py --gui --map-size 10 --turns 30 --seed 0 --play planned --gui-delay 800`       |
 | 自定义束搜索参数                          | `python main.py --map-size 10 --turns 30 --seed 0 --play planned --beam 8 --branch 5 --quiet` |
 | 指定策略随机源（与地图 `--seed` 独立）          | `python main.py --map-size 10 --play random --seed 1 --agent-seed 999`                        |
 
@@ -70,8 +75,58 @@ py main.py
 - `--agent-seed`：随机体 / 贪心平局随机源；计划搜索为确定性排序，此参数仅保留接口兼容。  
 - **仅 `planned`**：`--beam`（束宽，默认 11）、`--branch`（分支上限，默认 6）、`--max-city-candidates`（建城 top-K，默认 13）、`--max-horizon`（模拟深度上限，默认用剩余回合数）。  
 - **仅 `learned`**：`--il-weights`（权重路径，默认 `data/il_policy.pt`）、`--il-device`（`cuda` / `cpu`）、`--il-top-k`（top-k 启发式重排，默认 1）。
+- **图形界面**：`--gui` 启用 Pygame 窗口；`--gui-delay` 控制旁观模式每回合间隔毫秒（默认 450）；`--light` 启动浅色主题。需先 `python -m pip install pygame`（**Python 3.14 请用 `pygame-ce`**：`python -m pip install pygame-ce`）。
 
 不加参数时：先询问地图边长，再询问游戏方式（含「计划束搜索」），然后进入对局。
+
+### 图形界面（Pygame）
+
+安装依赖后可用窗口化对局，规则与终端模式一致。
+
+```bash
+python -m pip install pygame-ce   # Python 3.14；其他版本可用 pygame
+python run_gui.py                # 等价于 --gui --map-size 10 --turns 30 --play human
+python run_gui.py --light        # 浅色主题
+```
+
+`run_gui.py` 会在默认参数后**追加**你传入的额外参数，例如：
+
+```bash
+python run_gui.py --seed 42 --light
+python run_gui.py --play greedy --gui-delay 600
+```
+
+**界面要点**
+
+| 区域 | 说明 |
+|------|------|
+| 地图 | 程序化地形贴图、城市标记、合法格/悬停 3×3 预览、河流动画 |
+| 侧栏 | 得分、回合、四类资源（含每回合产出）、科技 chip、动作按钮 |
+| 底栏 | 消息流、快捷键提示 |
+
+**快捷键（手动模式）**
+
+| 按键 | 作用 |
+|------|------|
+| `1`～`4` | 跳过 / 建城 / 建造 / 研究 |
+| `F5` | 快速存档（槽位 0） |
+| `F9` | 快速读档（槽位 0） |
+| `T` | 切换深/浅色主题 |
+| `Esc` | 关闭存档菜单；否则退出 |
+
+侧栏还提供 **存档 / 读档 / 主题** 按钮；存档菜单内按 `0`～`3` 选择槽位（`Esc` 取消）。
+
+**存档**
+
+- 实现：`engine/save.py`，JSON 格式，版本号 `SAVE_VERSION = 1`
+- 路径：`saves/quicksave.json`（槽位 0）、`saves/slot1.json`～`slot3.json`
+- `saves/` 目录已加入 `.gitignore`，本地存档不会进入 Git
+- **仅图形界面**支持存读档；终端 `play()` 模式暂无存档
+
+**主题**
+
+- 深色（默认）与浅色两套配色，定义于 `ui/theme.py` 的 `DARK_THEME` / `LIGHT_THEME`
+- 地形、按钮、侧栏等资源颜色随主题切换；游戏中按 `T` 或侧栏按钮即时切换
 
 ### 在 PyCharm 中运行
 
@@ -94,6 +149,8 @@ py main.py
 | 指定种子 + Greedy                    | `--map-size 10 --turns 30 --seed 0 --play greedy --quiet`  |
 | 指定种子 + 计划束搜索                     | `--map-size 10 --turns 30 --seed 0 --play planned --quiet` |
 | 指定种子 + 模仿学习                       | `--map-size 10 --turns 30 --seed 0 --play learned --quiet` |
+| **Pygame 图形界面**                    | `--gui --map-size 10 --turns 30 --seed 42 --play human`    |
+| 图形界面 + 浅色主题                        | `--gui --light --map-size 10 --play human`                 |
 | 只改种子和模式（仍会问地图边长若未写 `--map-size`） | `--seed 42 --play human`                                   |
 
 - **选种子**：`--seed` 后跟整数。  
@@ -115,15 +172,29 @@ python main.py --seed 0 --play planned --map-size 10 --turns 30 --quiet
 
 | 文件 / 目录 | 说明 |
 |-------------|------|
-| `main.py` | 入口、命令行与交互 |
-| `engine/` | 游戏引擎：`game.py`（对局规则）、`map.py`、`models.py` |
+| `main.py` | 入口、命令行与终端交互；`--gui` 桥接图形界面 |
+| `run_gui.py` | 图形界面快捷入口（默认 10×10、30 回合、手动模式） |
+| `ui/` | Pygame 图形界面（见下表） |
+| `engine/` | 游戏引擎：`game.py`、`map.py`、`models.py`、`save.py`（JSON 存档） |
 | `agents/` | 基线智能体：`random.py`、`greedy.py` |
 | `search/` | 计划束搜索：`agent.py`、`rules.py`、`eval.py`、`prune.py` |
 | `il/` | 模仿学习：编码、录数据、训练、`LearnedAgent` |
+| `saves/` | 图形界面本地存档（自动生成，不入 Git） |
 | `data/` | IL 本地生成数据（见 `data/README.md`，不入 Git） |
 | `课程设计报告.md` | 课程设计报告（含 §8 实验与 §10 提交清单） |
 | `seed_scores.csv` | 基线实验数据（见下） |
 | `tests/` | `pytest` 单元测试（**AI 辅助编写**，见报告 §3.2） |
+
+**`ui/` 模块**
+
+| 文件 | 说明 |
+|------|------|
+| `pygame_app.py` | 主窗口：地图、侧栏、交互、存档菜单、终局遮罩 |
+| `theme.py` | 深/浅色主题常量、中文标签、布局尺寸 |
+| `draw.py` | 圆角矩形、按钮、资源行、科技 chip 等绘制工具 |
+| `assets.py` | 程序化地形/城市/资源图标缓存 |
+| `particles.py` | 建城/建造/研究动作粒子反馈 |
+| `sharp.py` | Windows 高 DPI 清晰显示 |
 
 运行与测试时**工作目录仍为项目根**（与 `main.py` 同级），以便 `python main.py` 与 `python -m il.*` 能解析 `engine`、`agents`、`search` 包。
 
@@ -199,6 +270,6 @@ python -m pip install pytest
 python -m pytest tests -v
 ```
 
-当前共 **57** 项用例，覆盖：游戏规则、`main` 冒烟（含 `planned` / `learned`）、搜索模块、计划智能体与 IL 编码等。**测试文件由 AI 辅助编写**，本人负责核对断言与实现是否一致；详见 `课程设计报告.md` §3.2。
+当前共 **62** 项用例，覆盖：游戏规则、**JSON 存档往返**（`test_save.py`）、`main` 子进程冒烟（`human` / `random` / `greedy` / `planned`）、搜索模块、计划智能体与 IL 编码等。**无 GUI 自动化测试**（需人工启动 `--gui` 验证）。**测试文件由 AI 辅助编写**，本人负责核对断言与实现是否一致；详见 `课程设计报告.md` §3.2。
 
 ---
