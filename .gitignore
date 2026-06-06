@@ -20,7 +20,9 @@ data/*
 # 游戏存档
 saves/
 
-# 本地临时文件
+# 日志与本地临时文件
+*.log
 log.log
 _recover/
+ui/_decompiled/
 ui/pygame_app_recovered.py

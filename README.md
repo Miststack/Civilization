@@ -181,8 +181,8 @@ python main.py --seed 0 --play planned --map-size 10 --turns 30 --quiet
 | `il/` | 模仿学习：编码、录数据、训练、`LearnedAgent` |
 | `saves/` | 图形界面本地存档（自动生成，不入 Git） |
 | `data/` | IL 本地生成数据（见 `data/README.md`，不入 Git） |
+| `docs/` | 演示 GIF（`demos/`）、实验 CSV（`experiments/`），见 `docs/README.md` |
 | `课程设计报告.md` | 课程设计报告（含 §8 实验与 §10 提交清单） |
-| `seed_scores.csv` | 基线实验数据（见下） |
 | `tests/` | `pytest` 单元测试（**AI 辅助编写**，见报告 §3.2） |
 
 **`ui/` 模块**
@@ -234,7 +234,7 @@ python main.py --map-size 10 --turns 30 --seed 0 --play learned --quiet
 
 ---
 
-## 实验数据 `seed_scores.csv`
+## 实验数据 `docs/experiments/seed_scores.csv`
 
 在 **10×10 地图、30 回合** 下，对 **seed 0～99** 记录三种自动策略的终局 `score()`：
 
