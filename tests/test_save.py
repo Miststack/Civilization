@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from engine.game import GameConfig, GameState
-from engine.models import Action, BuildingType, TechType
+from engine.models import Action, TechType
 from engine.save import load_game, save_game, save_path, slot_summary, state_from_dict, state_to_dict
 
 

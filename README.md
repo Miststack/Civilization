@@ -6,7 +6,7 @@
 
 | 模块 | 说明 |
 |------|------|
-| `engine/` | 地图生成、回合结算、建筑落点规则、终局评分、JSON 存档 |
+| `engine/` | 地图生成、回合结算、终局评分、JSON 存档 |
 | `agents/`、`search/`、`il/` | 随机与贪心基线、束搜索、可选模仿学习 |
 | `ui/` | 地图渲染、深/浅色主题、四槽存档、局内设置面板 |
 
@@ -129,12 +129,6 @@ python run_gui.py --play greedy --gui-delay 600
 | `Esc` | 关闭存档菜单；否则退出 |
 
 侧栏还提供 **存档 / 读档 / 主题** 按钮；存档菜单内按 `0`～`3` 选择槽位（`Esc` 取消）。
-
-**建筑落点**
-
-- 农场 / 伐木场 / 矿场 / 图书馆须落在城市 3×3 范围内、地形符合 `BUILDING_DEFS` 要求
-- 终端手动：选建造后会提示在合法格中选落点；自动模式缺坐标时由 `GameState._auto_building_placement` 按地形偏好自动选格
-- 存档会持久化 `building_tiles`，读档时与建筑列表一并恢复
 
 **存档**
 
@@ -290,7 +284,7 @@ python -m pip install pytest
 python -m pytest tests -v
 ```
 
-当前共 **67** 项用例（**11** 个 `test_*.py`），覆盖：游戏规则、**建筑落点**（`test_building_placement.py`）、**JSON 存档往返**（`test_save.py`）、`main` 子进程冒烟（`human` / `random` / `greedy` / `planned`）、搜索模块、计划智能体与 IL 编码等。**无 GUI 自动化测试**（需人工启动 `--gui` 验证）。**测试文件由 AI 辅助编写**，本人负责核对断言与实现是否一致；详见 `课程设计报告.md` §3.2。
+当前共 **62** 项用例（**10** 个 `test_*.py`），覆盖：游戏规则、**JSON 存档往返**（`test_save.py`）、`main` 子进程冒烟（`human` / `random` / `greedy` / `planned`）、搜索模块、计划智能体与 IL 编码等。**无 GUI 自动化测试**（需人工启动 `--gui` 验证）。**测试文件由 AI 辅助编写**，本人负责核对断言与实现是否一致；详见 `课程设计报告.md` §3.2。
 
 ---
 
@@ -298,7 +292,7 @@ python -m pytest tests -v
 
 | 版本 | 要点 |
 |------|------|
-| **v1.0.0** | 终端 + Pygame GUI、建筑落点、JSON 四槽存档、深/浅色主题、局内设置；Random / Greedy / Planned / Learned 策略；100 seed 基线实验（`docs/experiments/seed_scores.csv`） |
+| **v1.0.0** | 终端 + Pygame GUI、JSON 四槽存档、深/浅色主题、局内设置；Random / Greedy / Planned / Learned 策略；100 seed 基线实验（`docs/experiments/seed_scores.csv`） |
 
 历史 Release 见 [GitHub Releases](https://github.com/Miststack/Civilization/releases)。
 

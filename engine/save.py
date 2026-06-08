@@ -36,9 +36,6 @@ def state_to_dict(state: GameState) -> Dict[str, Any]:
                 "x": city.x,
                 "y": city.y,
                 "buildings": _enum_list(city.buildings),
-                "building_tiles": {
-                    b.value: [x, y] for b, (x, y) in city.building_tiles.items()
-                },
             }
             for city in state.cities
         ],
@@ -74,25 +71,14 @@ def state_from_dict(data: Dict[str, Any]) -> GameState:
     state.cities = []
     for raw_city in data.get("cities", []):
         buildings = {BuildingType(b) for b in raw_city.get("buildings", [])}
-        building_tiles: dict[BuildingType, tuple[int, int]] = {}
-        for bval, coords in raw_city.get("building_tiles", {}).items():
-            if isinstance(coords, (list, tuple)) and len(coords) == 2:
-                building_tiles[BuildingType(bval)] = (int(coords[0]), int(coords[1]))
         state.cities.append(
             City(
                 city_id=int(raw_city["city_id"]),
                 x=int(raw_city["x"]),
                 y=int(raw_city["y"]),
                 buildings=buildings,
-                building_tiles=building_tiles,
             )
         )
-    for city in state.cities:
-        for building in list(city.buildings):
-            if building not in city.building_tiles:
-                placement = state._auto_building_placement(city.city_id, building)
-                if placement is not None:
-                    city.building_tiles[building] = placement
     state.pending_city_projects = [
         (int(x), int(y), int(remain))
         for x, y, remain in data.get("pending_city_projects", [])

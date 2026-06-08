@@ -179,11 +179,7 @@ def _terrain_yield_hint(terrain: TerrainType) -> str:
 
 
 def _building_terrain_hint(building: BuildingType) -> str:
-    terrains = BUILDING_DEFS[building].get("terrains")
-    if not terrains:
-        return _building_yield_hint(building)
-    names = [TERRAIN_LABELS.get(t.value, t.value) for t in terrains]
-    return "需 " + "/".join(names)
+    return _building_yield_hint(building)
 
 def _format_yields_static(yields: dict[str, int]) -> str:
     parts = []

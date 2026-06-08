@@ -63,22 +63,6 @@ def _partition_legal(state: GameState) -> tuple[List[Action], List[Action], List
     return skip_a, build_city, build_b, research
 
 
-def _pick_building_placement(state: GameState, action: Action) -> Action | None:
-    if action.city_id is None or action.building is None:
-        return None
-    cells = state.legal_building_cells(action.city_id, action.building)
-    if not cells:
-        print("该城市没有可放置建筑的格子。")
-        return None
-    options = [
-        Action.build_building(action.city_id, action.building, x, y) for x, y in cells
-    ]
-    return _pick_from_list(
-        options,
-        f"城市 #{action.city_id} 建造 {action.building.value} — 选择落点:",
-    )
-
-
 def _pick_from_list(items: List[Action], title: str) -> Action | None:
     if not items:
         print("当前没有可选项。")
@@ -153,10 +137,7 @@ def play(state: GameState) -> None:
                 if not buildings:
                     print("当前没有可建造的建筑。")
                     continue
-                picked = _pick_from_list(buildings, "可选建造:")
-                if picked is None:
-                    continue
-                action = _pick_building_placement(state, picked)
+                action = _pick_from_list(buildings, "可选建造:")
                 if action is None:
                     continue
                 break

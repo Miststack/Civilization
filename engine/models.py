@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, FrozenSet, Optional, Set, Tuple
+from typing import Dict, FrozenSet, Optional, Set
 
 
 #基础类型枚举
@@ -76,25 +76,21 @@ BUILDING_DEFS:Dict[BuildingType,Dict[str, object]]={
         "cost":{"wood":2},
         "yield_bonus":{"food":1},
         "tech":TechType.AGRICULTURE,
-        "terrains": frozenset({TerrainType.PLAIN, TerrainType.RIVER}),
     },
     BuildingType.LUMBER_MILL:{
         "cost":{"wood":2},
         "yield_bonus":{"wood":1},
         "tech":TechType.LOGGING,
-        "terrains": frozenset({TerrainType.FOREST}),
     },
     BuildingType.MINE:{
         "cost":{"wood":3},
         "yield_bonus":{"ore":2},
         "tech":TechType.MINING,
-        "terrains": frozenset({TerrainType.MOUNTAIN}),
     },
     BuildingType.LIBRARY:{
         "cost":{"wood":2,"ore":2},
         "yield_bonus":{"science":2},
         "tech":TechType.EDUCATION,
-        "terrains": frozenset({TerrainType.PLAIN, TerrainType.RIVER}),
     },
 }
 
@@ -123,18 +119,11 @@ class Action:
     def build_city(x: int, y: int) -> "Action":
         return Action(type=ActionType.BUILD_CITY, x=x, y=y)  # 返回完整建城动作对象
     @staticmethod  # 静态构造器：创建“建造建筑”动作
-    def build_building(
-        city_id: int,
-        building: BuildingType,
-        x: Optional[int] = None,
-        y: Optional[int] = None,
-    ) -> "Action":
+    def build_building(city_id: int, building: BuildingType) -> "Action":
         return Action(
             type=ActionType.BUILD_BUILDING,  # 动作类型=建造
             city_id=city_id,  # 指定目标城市
             building=building,  # 指定要建造的建筑类型
-            x=x,
-            y=y,
         )
     @staticmethod  # 静态构造器：创建“研究科技”动作
     def research(tech: TechType) -> "Action":
@@ -148,7 +137,6 @@ class City:
     city_id: int
     x:int
     y:int
-    buildings: Set[BuildingType] = field(default_factory=set)  # 当前城市已建成建筑集合
-    building_tiles: Dict[BuildingType, Tuple[int, int]] = field(default_factory=dict)  # 建筑落点
+    buildings: Set[BuildingType]=field(default_factory=set)#当前城市已建成建筑集合
 def empty_resources()->Dict[str,int]:
     return {k: 0 for k in RESOURCE_KEYS}# 每种资源初始值设为 0
