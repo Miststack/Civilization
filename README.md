@@ -1,6 +1,6 @@
 # 简化文明
 
-> **v1.0.0** · [Release 说明](https://github.com/Miststack/Civilization/releases/tag/v1.0.0)
+> **v1.0.1** · [Release 说明](https://github.com/Miststack/Civilization/releases)
 
 在 8～12 边长的随机方格地图上发展城市、放置建筑、研究科技，支持终端交互、Pygame 图形界面、JSON 存档，以及 Random / Greedy / 计划束搜索 / 模仿学习四种自动策略。
 
@@ -8,7 +8,7 @@
 |------|------|
 | `engine/` | 地图生成、回合结算、终局评分、JSON 存档 |
 | `agents/`、`search/`、`il/` | 随机与贪心基线、束搜索、可选模仿学习 |
-| `ui/` | 地图渲染、深/浅色主题、四槽存档、局内设置面板 |
+| `ui/` | 地图渲染、深/浅色主题、四槽存档、局内设置面板、GUI 偏好持久化 |
 
 本文件说明**环境、命令行与测试**；完整课程设计、实验数据与提交清单见 **`课程设计报告.md`**（§8 实验、§10 提交清单）。演示 GIF 与 CSV 见 **`docs/README.md`**。
 
@@ -76,6 +76,7 @@ py main.py
 | 图形界面 + 浅色主题                        | `python run_gui.py --light` 或 `python main.py --gui --light --map-size 10 --play human`      |
 | 图形界面旁观自动策略                         | `python main.py --gui --map-size 10 --turns 30 --seed 0 --play greedy --gui-delay 500`        |
 | 图形界面旁观计划搜索                         | `python main.py --gui --map-size 10 --turns 30 --seed 0 --play planned --gui-delay 800`       |
+| 图形界面旁观模仿学习                         | `python main.py --gui --map-size 10 --turns 30 --seed 0 --play learned`（GUI 默认 top-k=8）   |
 | 图形界面放大 1.25 倍                       | `python run_gui.py --gui-scale 1.25`                                                          |
 | 自定义束搜索参数                          | `python main.py --map-size 10 --turns 30 --seed 0 --play planned --beam 8 --branch 5 --quiet` |
 | 指定策略随机源（与地图 `--seed` 独立）          | `python main.py --map-size 10 --play random --seed 1 --agent-seed 999`                        |
@@ -89,8 +90,8 @@ py main.py
 - `--quiet`：自动模式下减少打印。  
 - `--agent-seed`：随机体 / 贪心平局随机源；计划搜索为确定性排序，此参数仅保留接口兼容。  
 - **仅 `planned`**：`--beam`（束宽，默认 11）、`--branch`（分支上限，默认 6）、`--max-city-candidates`（建城 top-K，默认 13）、`--max-horizon`（模拟深度上限，默认用剩余回合数）。  
-- **仅 `learned`**：`--il-weights`（默认 `data/il_policy.pt`）、`--il-device`（`cuda` / `cpu`）、`--il-top-k`（推理重排，**推荐 8**，默认 1 即纯 argmax）。
-- **图形界面**：`--gui` 启用 Pygame 窗口；`--gui-delay` 旁观模式每回合间隔毫秒（默认 450）；`--light` 浅色主题；`--gui-scale` 界面缩放（0.85～2.0，默认 1.0）。需先 `python -m pip install pygame`（**Python 3.14 请用 `pygame-ce`**）。
+- **仅 `learned`**：`--il-weights`（默认 `data/il_policy.pt`）、`--il-device`（`cuda` / `cpu`）、`--il-top-k`（推理重排，**推荐 8**；CLI 默认 1 即纯 argmax，**GUI 默认 8**）。
+- **图形界面**：`--gui` 启用 Pygame 窗口；`--gui-delay` 旁观模式每回合间隔毫秒（默认 450，可持久化）；`--light` 浅色主题；`--gui-scale` 界面缩放（0.85～2.0，默认 1.0）。未显式传 `--gui-delay` / `--il-top-k` 时，启动会读取 `saves/gui_prefs.json`。需先 `python -m pip install pygame`（**Python 3.14 请用 `pygame-ce`**）。
 
 不加参数时：先询问地图边长，再询问游戏方式（含「计划束搜索」），然后进入对局。
 
@@ -109,6 +110,7 @@ python run_gui.py --light        # 浅色主题
 ```bash
 python run_gui.py --seed 42 --light
 python run_gui.py --play greedy --gui-delay 600
+python run_gui.py --play learned    # 旁观模仿学习，top-k 可在局内设置中调节
 ```
 
 **界面要点**
@@ -117,8 +119,8 @@ python run_gui.py --play greedy --gui-delay 600
 |------|------|
 | 地图 | 程序化地形贴图、城市标记、合法格/悬停 3×3 预览、河流动画 |
 | 侧栏 | 得分、回合、四类资源（含每回合产出）、科技 chip、动作按钮 |
-| 底栏 | 消息流、快捷键提示 |
-| 设置 | 局内可改地图尺寸、回合数、种子、策略模式、自动延迟与缩放 |
+| 底栏 | 消息流、快捷键提示（手动 / 旁观模式分别显示） |
+| 设置 | 局内可改地图尺寸、回合数、种子、策略模式、旁观速度、界面缩放；选「模仿」时可调 **IL top-k**（1～16） |
 
 **快捷键（手动模式）**
 
@@ -128,12 +130,25 @@ python run_gui.py --play greedy --gui-delay 600
 | `F5` | 快速存档（槽位 0） |
 | `F9` | 快速读档（槽位 0） |
 | `T` | 切换深/浅色主题 |
-| `Z` | 撤销上一步（手动模式） |
+| `Z` | 撤销上一步 |
 | `H` | 动作历史面板 |
-| `N` | 旁观模式单步推进 |
-| `Esc` | 关闭存档菜单；否则退出 |
+| `L` | 图例面板 |
+| `Esc` | 关闭菜单 / 取消选城；否则退出 |
 
-侧栏还提供 **存档 / 读档 / 主题 / 设置** 按钮；存档菜单内按 `0`～`3` 选择槽位（`Esc` 取消）。GUI 偏好（主题、缩放）持久化于 `saves/gui_prefs.json`。
+**快捷键（旁观模式）**
+
+| 按键 | 作用 |
+|------|------|
+| `空格` / `P` | 暂停 / 继续 |
+| `N` | 暂停时单步推进一回合 |
+| `[` / `]` | 调慢 / 调快（增大 / 减小每回合间隔 ms） |
+| `+` / `-` | 加速 / 减速（更直观；`+` 即更快） |
+| `L` | 图例面板 |
+| `Esc` | 退出 |
+
+侧栏还提供 **存档 / 读档 / 主题 / 设置** 按钮；存档菜单内按 `0`～`3` 选择槽位（`Esc` 取消）。
+
+**GUI 偏好**（`saves/gui_prefs.json`，v2）：主题、界面缩放、旁观速度（`auto_delay_ms`）、模仿学习 top-k（`il_top_k`，默认 8）。游戏中改速度 / top-k / 主题 / 缩放或退出时会自动保存；下次启动 `--gui` 时恢复（CLI 显式传 `--light` / `--gui-scale` / `--gui-delay` / `--il-top-k` 时优先于存档）。
 
 **存档**
 
@@ -219,7 +234,7 @@ python main.py --seed 0 --play planned --map-size 10 --turns 30 --quiet
 | `app_loop.py` | 主循环与事件分发 |
 | `gui_types.py` | 常量、`InteractionMode`、`Button` 等 |
 | `gui_format.py` | 字体与动作/建筑文本格式化 |
-| `prefs.py` | 主题与缩放偏好持久化 |
+| `prefs.py` | 主题、缩放、旁观速度、IL top-k 偏好持久化（`gui_prefs.json` v2） |
 | `theme.py` | 深/浅色主题常量、中文标签、布局尺寸 |
 | `draw.py` | 圆角矩形、按钮、资源行、科技 chip 等 |
 | `assets.py` | 程序化地形/城市/资源图标缓存 |
@@ -319,9 +334,9 @@ python -m pip install pytest
 python -m pytest tests -v
 ```
 
-当前共 **80** 项用例（**13** 个 `test_*.py`），覆盖：游戏规则、JSON 存档、终端存读档、智能体工厂、GUI 偏好、搜索模块、IL 编码与困难 seed 筛选、`main` 子进程冒烟（`human` / `random` / `greedy` / `planned`）等。**无 GUI 自动化测试**（需人工 `--gui` 验证）。**测试文件由 AI 辅助编写**，详见 `课程设计报告.md` §3.2。
+当前共 **81** 项用例（**13** 个 `test_*.py`），覆盖：游戏规则、JSON 存档、终端存读档、智能体工厂、GUI 偏好（含 v1 兼容）、搜索模块、IL 编码与困难 seed 筛选、`main` 子进程冒烟（`human` / `random` / `greedy` / `planned`）等。**无 GUI 自动化测试**（需人工 `--gui` 验证）。**测试文件由 AI 辅助编写**，详见 `课程设计报告.md` §3.2。
 
-**CI**（`.github/workflows/ci.yml`）：Ubuntu + Python 3.12，安装 `pytest` + `numpy`；无 torch 时跳过 2 项 IL 权重测试。本地完整验证：
+**CI**（`.github/workflows/ci.yml`）：Ubuntu + Python 3.12，安装 `pytest` + `numpy`；无 torch 时跳过 3 项 IL 权重测试。本地完整验证：
 
 ```bash
 python -m pip install pytest numpy torch
@@ -334,7 +349,8 @@ python -m pytest tests -v
 
 | 版本 | 要点 |
 |------|------|
-| **v1.0.0** | 终端 + Pygame GUI、JSON 四槽存档、深/浅色主题、局内设置；Random / Greedy / Planned / Learned 策略；100 seed 四策略实验（`docs/experiments/seed_scores.csv`）；80 项 pytest；GitHub CI |
+| **v1.0.1** | GUI 偏好 v2（旁观速度、IL top-k 持久化）；设置面板 top-k 控件；旁观快捷键（`P`/`+`/`-` 等）；81 项 pytest |
+| **v1.0.0** | 终端 + Pygame GUI、JSON 四槽存档、深/浅色主题、局内设置；Random / Greedy / Planned / Learned 策略；100 seed 四策略实验（`docs/experiments/seed_scores.csv`）；GitHub CI |
 
 历史 Release 见 [GitHub Releases](https://github.com/Miststack/Civilization/releases)。
 

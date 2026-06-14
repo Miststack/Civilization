@@ -10,6 +10,7 @@
 ```bash
 python main.py --map-size 10 --turns 30 --seed 0 --play planned --quiet    # 示例 645
 python main.py --map-size 10 --turns 30 --seed 0 --play learned --il-top-k 8 --quiet  # 需 data/il_policy.pt
+python main.py --gui --play learned --seed 0    # 图形界面旁观模仿学习（GUI 默认 top-k=8）
 python scripts/benchmark.py --agents learned --seeds 0-99 --il-top-k 8
 ```
 

@@ -1,6 +1,6 @@
 [project]
 name = "civilization"
-version = "1.0.0"
+version = "1.0.1"
 description = "简化文明 — 方格地图策略游戏与 AI 基线实验"
 readme = "README.md"
 requires-python = ">=3.10"
