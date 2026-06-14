@@ -671,6 +671,14 @@ class DrawMixin:
                 (x, self.footer_rect.bottom - 22),
                 self.theme.text_muted,
             )
+        elif not self.human_mode and not self.game_over and self.hover_cell is None and y + 16 < self.footer_rect.bottom:
+            draw_text(
+                self.screen,
+                self.font_tiny,
+                "空格/P 暂停 · N 单步 · [ ] 或 +/- 调速 · L 图例 · Esc 退出",
+                (x, self.footer_rect.bottom - 22),
+                self.theme.text_muted,
+            )
 
     def _draw_action_history(self, box: pygame.Rect) -> None:
         draw_rounded_rect(
@@ -799,6 +807,10 @@ class DrawMixin:
         self.screen.blit(overlay, (0, 0))
         self._settings_rects = []
         box_w, box_h = self.layout.px(400), self.layout.px(580)
+        if self._settings_play_mode != "human":
+            box_h += self.layout.px(44)
+        if self._settings_play_mode == "learned":
+            box_h += self.layout.px(44)
         box = pygame.Rect(
             (self.screen.get_width() - box_w) // 2,
             (self.screen.get_height() - box_h) // 2,
@@ -898,6 +910,39 @@ class DrawMixin:
             )
             self._settings_rects.extend([(dminus, "delay_down"), (dplus, "delay_up")])
             y += row_h + gap
+
+            if self._settings_play_mode == "learned":
+                draw_text(self.screen, self.font_tiny, "IL top-k", (box.x + 20, y + 8), self.theme.text_dim)
+                kminus = pygame.Rect(box.x + 120, y, self.layout.px(36), row_h)
+                kplus = pygame.Rect(box.x + 120 + self.layout.px(100), y, self.layout.px(36), row_h)
+                kmid = pygame.Rect(kminus.right + 8, y, kplus.x - kminus.right - 16, row_h)
+                draw_button(
+                    self.screen,
+                    kminus,
+                    "-",
+                    font=self.font_body,
+                    hover=kminus.collidepoint(pygame.mouse.get_pos()),
+                    palette=self.theme.ui_palette,
+                )
+                draw_button(
+                    self.screen,
+                    kplus,
+                    "+",
+                    font=self.font_body,
+                    hover=kplus.collidepoint(pygame.mouse.get_pos()),
+                    palette=self.theme.ui_palette,
+                )
+                draw_rounded_rect(self.screen, kmid, self.theme.panel_bg_alt, radius=8, border=self.theme.panel_border_soft)
+                draw_text(
+                    self.screen,
+                    self.font_body,
+                    str(self._settings_il_top_k),
+                    (kmid.centerx, kmid.centery - 8),
+                    self.theme.text,
+                    center=True,
+                )
+                self._settings_rects.extend([(kminus, "il_top_k_down"), (kplus, "il_top_k_up")])
+                y += row_h + gap
 
         draw_text(self.screen, self.font_tiny, "地图边长", (box.x + 20, y + 8), self.theme.text_dim)
         x = box.x + 120

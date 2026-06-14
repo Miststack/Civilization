@@ -119,7 +119,12 @@ class GameplayMixin:
 
     def _save_gui_prefs(self) -> None:
         try:
-            save_gui_prefs(light_theme=self.light_theme, gui_scale=self.layout.scale)
+            save_gui_prefs(
+                light_theme=self.light_theme,
+                gui_scale=self.layout.scale,
+                auto_delay_ms=self._settings_auto_delay_ms,
+                il_top_k=self._settings_il_top_k,
+            )
         except OSError:
             pass
 
@@ -294,6 +299,7 @@ class GameplayMixin:
             mode=play_mode,
             map_seed=self._startup_config.seed,
             il_weights=IL_WEIGHTS_PATH,
+            il_top_k=self._settings_il_top_k,
         )
         return create_agent(opts)
 
@@ -336,6 +342,8 @@ class GameplayMixin:
             self._settings_play_mode = "greedy"
         if not self.human_mode:
             self._settings_auto_delay_ms = self.auto_delay_ms
+            if LearnedAgent is not None and isinstance(self.agent, LearnedAgent):
+                self._settings_il_top_k = getattr(self.agent, "top_k_rerank", self._settings_il_top_k)
 
     def _open_settings(self) -> None:
         self._sync_settings_from_config()
@@ -470,9 +478,19 @@ class GameplayMixin:
             return
         if action == "delay_down":
             self._settings_auto_delay_ms = max(50, self._settings_auto_delay_ms - AUTO_DELAY_STEP_MS)
+            self._save_gui_prefs()
             return
         if action == "delay_up":
             self._settings_auto_delay_ms = min(3000, self._settings_auto_delay_ms + AUTO_DELAY_STEP_MS)
+            self._save_gui_prefs()
+            return
+        if action == "il_top_k_down":
+            self._settings_il_top_k = max(1, self._settings_il_top_k - 1)
+            self._save_gui_prefs()
+            return
+        if action == "il_top_k_up":
+            self._settings_il_top_k = min(16, self._settings_il_top_k + 1)
+            self._save_gui_prefs()
             return
         if action == "new_game_start":
             try:

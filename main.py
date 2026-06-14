@@ -272,21 +272,31 @@ def _run(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
             gui_title = GUI_TITLES.get(mode, "简化文明")
         gui_scale = max(0.85, min(2.0, args.gui_scale))
         light_theme = args.light
+        auto_delay_ms = max(0, args.gui_delay)
+        il_top_k = args.il_top_k
         if merge_gui_prefs is not None:
-            light_theme, gui_scale = merge_gui_prefs(
+            argv_set = set(sys.argv[1:])
+            cli_auto = args.gui_delay if "--gui-delay" in argv_set else None
+            cli_il = args.il_top_k if "--il-top-k" in argv_set else None
+            light_theme, gui_scale, auto_delay_ms, il_top_k = merge_gui_prefs(
                 light_theme=args.light,
                 gui_scale=gui_scale,
                 cli_light=args.light,
                 cli_scale=args.gui_scale,
+                auto_delay_ms=auto_delay_ms,
+                il_top_k=il_top_k,
+                cli_auto_delay=cli_auto,
+                cli_il_top_k=cli_il,
             )
         score = run_pygame_game(
             state,
             agent=agent_for_gui,
-            auto_delay_ms=0 if mode == "human" else max(0, args.gui_delay),
+            auto_delay_ms=0 if mode == "human" else auto_delay_ms,
             title=gui_title,
             light_theme=light_theme,
             gui_scale=gui_scale,
             play_mode=mode,
+            il_top_k=il_top_k,
         )
         print(f"最终得分: {score}")
         return

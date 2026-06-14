@@ -1,7 +1,8 @@
 """Pygame 图形界面主应用。"""
 from __future__ import annotations
 
-from typing import List, Optional
+import threading
+from typing import List, Optional, Tuple
 
 import pygame
 
@@ -22,6 +23,7 @@ from ui.app_loop import LoopMixin
 from ui.assets import AssetAtlas
 from ui.gui_types import Button, InteractionMode, ListItem
 from ui.particles import ParticleSystem
+from ui.prefs import DEFAULT_AUTO_DELAY_MS, DEFAULT_IL_TOP_K
 from ui.theme import DEFAULT_GUI_SCALE, Layout, theme_by_name
 
 
@@ -33,11 +35,12 @@ class CivGameApp(LoopMixin, DrawMixin, InputMixin, GameplayMixin):
         state: GameState,
         *,
         agent: Optional[object] = None,
-        auto_delay_ms: int = 450,
+        auto_delay_ms: int = DEFAULT_AUTO_DELAY_MS,
         title: str = "简化文明",
         light_theme: bool = False,
         gui_scale: float = DEFAULT_GUI_SCALE,
         play_mode: Optional[str] = None,
+        il_top_k: int = DEFAULT_IL_TOP_K,
     ) -> None:
         self.state = state
         self.auto_delay_ms = max(0, auto_delay_ms)
@@ -102,7 +105,8 @@ class CivGameApp(LoopMixin, DrawMixin, InputMixin, GameplayMixin):
         self._settings_random_seed = state.config.seed is None
         self._settings_rects: list[tuple[pygame.Rect, str]] = []
         self._city_detail_close_rect: Optional[pygame.Rect] = None
-        self._settings_auto_delay_ms = max(50, auto_delay_ms) if auto_delay_ms > 0 else 450
+        self._settings_auto_delay_ms = max(50, auto_delay_ms) if auto_delay_ms > 0 else DEFAULT_AUTO_DELAY_MS
+        self._settings_il_top_k = max(1, min(16, il_top_k))
 
         self.buttons: List[Button] = []
         self.list_items: List[ListItem] = []

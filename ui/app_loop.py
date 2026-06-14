@@ -110,17 +110,31 @@ class LoopMixin:
                         if event.key == pygame.K_l:
                             self._legend_open = not self._legend_open
                             self._legend_scroll = 0
-                        elif event.key == pygame.K_SPACE:
+                        elif event.key == pygame.K_SPACE or event.key == pygame.K_p:
                             self._paused = not self._paused
                             self._show_toast("已暂停" if self._paused else "继续旁观")
                         elif event.key == pygame.K_n and (self._paused or self._thinking):
                             if not self._thinking:
                                 self._begin_agent_turn()
-                        elif event.key == pygame.K_LEFTBRACKET:
+                        elif event.key in (pygame.K_LEFTBRACKET,):
                             self.auto_delay_ms = min(3000, self.auto_delay_ms + AUTO_DELAY_STEP_MS)
+                            self._settings_auto_delay_ms = self.auto_delay_ms
+                            self._save_gui_prefs()
                             self._show_toast(f"速度 {self.auto_delay_ms}ms/回合")
-                        elif event.key == pygame.K_RIGHTBRACKET:
+                        elif event.key in (pygame.K_RIGHTBRACKET,):
                             self.auto_delay_ms = max(50, self.auto_delay_ms - AUTO_DELAY_STEP_MS)
+                            self._settings_auto_delay_ms = self.auto_delay_ms
+                            self._save_gui_prefs()
+                            self._show_toast(f"速度 {self.auto_delay_ms}ms/回合")
+                        elif event.key in (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS):
+                            self.auto_delay_ms = max(50, self.auto_delay_ms - AUTO_DELAY_STEP_MS)
+                            self._settings_auto_delay_ms = self.auto_delay_ms
+                            self._save_gui_prefs()
+                            self._show_toast(f"速度 {self.auto_delay_ms}ms/回合")
+                        elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
+                            self.auto_delay_ms = min(3000, self.auto_delay_ms + AUTO_DELAY_STEP_MS)
+                            self._settings_auto_delay_ms = self.auto_delay_ms
+                            self._save_gui_prefs()
                             self._show_toast(f"速度 {self.auto_delay_ms}ms/回合")
                     elif self.human_mode and not self.game_over:
                         if event.key == pygame.K_l:
