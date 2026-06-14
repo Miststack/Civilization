@@ -53,6 +53,10 @@ def merge_npz(paths, out):
     return len(chunks_s[0]) if len(chunks_s) == 1 else sum(len(c) for c in chunks_s)
 
 
+def parse_seed_list(text: str) -> list[int]:
+    return [int(part.strip()) for part in text.split(",") if part.strip()]
+
+
 def main():
     p = argparse.ArgumentParser(description="DAgger 数据采集")
     p.add_argument("--base-data", default="data/il_expert.npz")
@@ -60,20 +64,27 @@ def main():
     p.add_argument("--out", default="data/il_expert_dagger.npz")
     p.add_argument("--seeds", type=int, default=30)
     p.add_argument("--seed-start", type=int, default=100)
+    p.add_argument(
+        "--seed-list",
+        type=str,
+        default=None,
+        help="指定 seed 列表（逗号分隔），提供时忽略 --seeds / --seed-start",
+    )
     p.add_argument("--map-size", type=int, default=10)
     p.add_argument("--turns", type=int, default=30)
     p.add_argument("--top-k", type=int, default=8)
     args = p.parse_args()
 
     learner = LearnedAgent(weights_path=args.weights, top_k_rerank=args.top_k)
-    expert = PlannedSearchAgent(
-        SearchConfig(beam=8, branch=5, max_city_candidates=10, max_horizon=10), None
-    )
+    expert = PlannedSearchAgent(SearchConfig(), None)
 
     dagger_only = Path(str(args.out).replace(".npz", ".dagger_only.npz"))
     all_s, all_a, all_m = [], [], []
     total_corr = 0
-    seeds = list(range(args.seed_start, args.seed_start + args.seeds))
+    if args.seed_list:
+        seeds = parse_seed_list(args.seed_list)
+    else:
+        seeds = list(range(args.seed_start, args.seed_start + args.seeds))
     random.shuffle(seeds)
 
     for i, seed in enumerate(seeds):

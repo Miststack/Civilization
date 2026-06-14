@@ -59,6 +59,30 @@ def test_clone_is_independent() -> None:
     assert s.turn == 1 and c.turn == 2
 
 
+def test_clone_copies_mutable_state() -> None:
+    s = GameState(GameConfig(8, 30, seed=2))
+    for _ in range(5):
+        s.do_turn(Action.skip())
+    c = s.clone()
+    assert c.turn == s.turn
+    assert c.resources == s.resources
+    assert c.tech_unlocked == s.tech_unlocked
+    assert len(c.cities) == len(s.cities)
+    assert c.score() == s.score()
+
+    c.resources["food"] += 99
+    assert c.resources != s.resources
+    assert c.cities is not s.cities
+    assert c.cities[0] is not s.cities[0]
+    assert c.cities[0].buildings is not s.cities[0].buildings
+
+
+def test_clone_shares_static_grid() -> None:
+    s = GameState(GameConfig(8, 10, seed=0))
+    c = s.clone()
+    assert c.grid is s.grid
+
+
 def test_research_science_cost_and_production_stack() -> None:
     s = GameState(GameConfig(8, 60, seed=1))
     while s.resources["science"] < TECH_COST[TechType.AGRICULTURE]:

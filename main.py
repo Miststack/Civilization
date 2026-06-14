@@ -1,23 +1,21 @@
 from __future__ import annotations
 
 import argparse
-import random
 import sys
 from typing import List
 
-from agents import GreedyAgent, RandomAgent
+from agents.factory import AgentOptions, GUI_TITLES, MODE_LABELS, create_agent
 from engine import GameConfig, GameState
+from engine.actions import action_label, partition_legal
 from engine.models import Action, ActionType, BuildingType, TechType
-from search import PlannedSearchAgent, SearchConfig
+from engine.terminal_save import terminal_load, terminal_save
+from search import PlannedSearchAgent
 
 try:
-    from il.learned_agent import LearnedAgent
-except ImportError:
-    LearnedAgent = None  # type: ignore[misc, assignment]
-
-try:
+    from ui.prefs import merge_gui_prefs
     from ui.pygame_app import run_pygame_game
 except ImportError:
+    merge_gui_prefs = None  # type: ignore[misc, assignment]
     run_pygame_game = None  # type: ignore[misc, assignment]
 
 
@@ -33,36 +31,6 @@ def _pause_before_exit() -> None:
         pass
 
 
-def _action_label(a: Action) -> str:
-    if a.type == ActionType.SKIP:
-        return "跳过本回合"
-    if a.type == ActionType.BUILD_CITY and a.x is not None and a.y is not None:
-        return f"在 ({a.x}, {a.y}) 开始建城"
-    if a.type == ActionType.BUILD_BUILDING and a.city_id is not None and a.building is not None:
-        return f"城市 #{a.city_id} 建造 {a.building.value}"
-    if a.type == ActionType.RESEARCH and a.tech is not None:
-        return f"研究科技 {a.tech.value}"
-    return str(a)
-
-
-def _partition_legal(state: GameState) -> tuple[List[Action], List[Action], List[Action], List[Action]]:
-    legal = state.legal_actions()
-    skip_a: List[Action] = []
-    build_city: List[Action] = []
-    build_b: List[Action] = []
-    research: List[Action] = []
-    for a in legal:
-        if a.type == ActionType.SKIP:
-            skip_a.append(a)
-        elif a.type == ActionType.BUILD_CITY:
-            build_city.append(a)
-        elif a.type == ActionType.BUILD_BUILDING:
-            build_b.append(a)
-        elif a.type == ActionType.RESEARCH:
-            research.append(a)
-    return skip_a, build_city, build_b, research
-
-
 def _pick_from_list(items: List[Action], title: str) -> Action | None:
     if not items:
         print("当前没有可选项。")
@@ -70,7 +38,7 @@ def _pick_from_list(items: List[Action], title: str) -> Action | None:
     while True:
         print(title)
         for i, a in enumerate(items):
-            print(f"  [{i}] {_action_label(a)}")
+            print(f"  [{i}] {action_label(a)}")
         raw = input("输入序号（直接回车取消）: ").strip()
         if raw == "":
             return None
@@ -86,13 +54,14 @@ def _pick_from_list(items: List[Action], title: str) -> Action | None:
 
 
 def play(state: GameState) -> None:
-    while not state.is_terminal():
+    current = state
+    while not current.is_terminal():
         print("\n" + "=" * 56)
-        print(state.render_map())
-        print(state.summary())
-        print(f"当前得分: {state.score()}")
+        print(current.render_map())
+        print(current.summary())
+        print(f"当前得分: {current.score()}")
 
-        skips, cities, buildings, techs = _partition_legal(state)
+        skips, cities, buildings, techs = partition_legal(current)
         action: Action | None = None
         while True:
             print("\n主菜单（输入数字后回车）:")
@@ -103,6 +72,8 @@ def play(state: GameState) -> None:
                 print(f"  3 — 建造建筑（当前 {len(buildings)} 个合法组合）")
             if techs:
                 print(f"  4 — 研究科技（当前 {len(techs)} 项可研究）")
+            print("  5 — 存档")
+            print("  6 — 读档")
             print("  0 — 结束游戏并退出")
             print("  h — 建筑/科技名称对照（farm / lumber_mill / mine / library …）")
 
@@ -111,6 +82,14 @@ def play(state: GameState) -> None:
             if choice == "0":
                 print("游戏已结束。")
                 return
+            if choice == "5":
+                terminal_save(current)
+                break
+            if choice == "6":
+                loaded = terminal_load()
+                if loaded is not None:
+                    current = loaded
+                break
             if choice == "h":
                 print(
                     "建筑: "
@@ -150,17 +129,20 @@ def play(state: GameState) -> None:
                     continue
                 break
 
-            print("无效选择，请重新输入（1/2/3/4/0/h，视当前菜单项而定）。")
+            print("无效选择，请重新输入（1/2/3/4/5/6/0/h，视当前菜单项而定）。")
+            continue
+
+        if action is None:
             continue
 
         assert action is not None  # 仅在选择 1～4 且子菜单未取消时 break 至此
-        msg = state.do_turn(action)
+        msg = current.do_turn(action)
         print(f"\n>>> {msg}")
 
     print("\n已达最大回合数，游戏自然结束。")
-    print(state.render_map())
-    print(state.summary())
-    print(f"最终得分: {state.score()}")
+    print(current.render_map())
+    print(current.summary())
+    print(f"最终得分: {current.score()}")
 
 
 def prompt_map_size() -> int:
@@ -206,21 +188,130 @@ def prompt_play_mode() -> str:
 
 
 def play_agent(state: GameState, agent: object, *, quiet: bool = False) -> None:
-    while not state.is_terminal():
-        if not quiet:
-            print("\n" + "=" * 56)
-            print(state.render_map())
-            print(state.summary())
-            print(f"当前得分: {state.score()}")
-        action = agent.choose(state)  # type: ignore[attr-defined]
-        msg = state.do_turn(action)
-        if not quiet:
-            print(f"\n>>> [{_action_label(action)}] {msg}")
+    try:
+        while not state.is_terminal():
+            if not quiet:
+                print("\n" + "=" * 56)
+                print(state.render_map())
+                print(state.summary())
+                print(f"当前得分: {state.score()}")
+            action = agent.choose(state)  # type: ignore[attr-defined]
+            msg = state.do_turn(action)
+            if not quiet:
+                print(f"\n>>> [{action_label(action)}] {msg}")
+    except RuntimeError as exc:
+        print(f"\n策略决策失败: {exc}")
+        print(f"中断时得分: {state.score()}")
+        sys.exit(1)
     if not quiet:
         print("\n已达最大回合数，游戏自然结束。")
         print(state.render_map())
         print(state.summary())
     print(f"最终得分: {state.score()}")
+
+
+def _agent_options_from_args(args: argparse.Namespace, mode: str) -> AgentOptions:
+    return AgentOptions(
+        mode=mode,
+        agent_seed=args.agent_seed,
+        map_seed=args.seed,
+        beam=args.beam,
+        branch=args.branch,
+        max_city_candidates=args.max_city_candidates,
+        max_horizon=args.max_horizon,
+        il_weights=args.il_weights,
+        il_device=args.il_device,
+        il_top_k=args.il_top_k,
+    )
+
+
+def _create_agent_or_exit(parser: argparse.ArgumentParser, args: argparse.Namespace, mode: str) -> object:
+    try:
+        return create_agent(_agent_options_from_args(args, mode))
+    except (RuntimeError, ValueError, FileNotFoundError, OSError) as exc:
+        parser.error(str(exc))
+    raise AssertionError("unreachable")
+
+
+def _exit_interrupted() -> None:
+    print("\n已中断退出。")
+    sys.exit(0)
+
+
+def _run(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    if args.map_size is not None:
+        if not (8 <= args.map_size <= 12):
+            parser.error("--map-size 必须在 8~12 之间")
+        map_size = args.map_size
+    elif args.gui:
+        map_size = 10
+    else:
+        print("欢迎来到简化文明。")
+        map_size = prompt_map_size()
+
+    if args.play is not None:
+        mode = args.play
+    elif args.gui:
+        mode = "human"
+    else:
+        mode = prompt_play_mode()
+    cfg = GameConfig(map_size=map_size, total_turns=args.turns, seed=args.seed)
+    state = GameState(cfg)
+
+    if args.gui:
+        if run_pygame_game is None:
+            parser.error(
+                "图形界面需要 Pygame。请执行: python -m pip install pygame"
+                "（Python 3.14 请用: python -m pip install pygame-ce）"
+            )
+        print("正在启动 Pygame 图形界面…")
+        agent_for_gui: object | None = None
+        gui_title = "简化文明"
+        if mode != "human":
+            agent_for_gui = _create_agent_or_exit(parser, args, mode)
+            gui_title = GUI_TITLES.get(mode, "简化文明")
+        gui_scale = max(0.85, min(2.0, args.gui_scale))
+        light_theme = args.light
+        if merge_gui_prefs is not None:
+            light_theme, gui_scale = merge_gui_prefs(
+                light_theme=args.light,
+                gui_scale=gui_scale,
+                cli_light=args.light,
+                cli_scale=args.gui_scale,
+            )
+        score = run_pygame_game(
+            state,
+            agent=agent_for_gui,
+            auto_delay_ms=0 if mode == "human" else max(0, args.gui_delay),
+            title=gui_title,
+            light_theme=light_theme,
+            gui_scale=gui_scale,
+            play_mode=mode,
+        )
+        print(f"最终得分: {score}")
+        return
+
+    if mode == "human":
+        print("\n每回合先选动作，结算后进入下一回合。")
+        play(state)
+        _pause_before_exit()
+        return
+
+    agent = _create_agent_or_exit(parser, args, mode)
+
+    label = MODE_LABELS[mode]
+    extra = ""
+    if mode == "planned" and isinstance(agent, PlannedSearchAgent):
+        c = agent.config
+        extra = (
+            f" | beam={c.beam} branch={c.branch}"
+            f" max_city={c.max_city_candidates} horizon={c.max_horizon!r}"
+        )
+    print(f"\n当前为自动模式：{label} | 地图 seed={args.seed!r}{extra}")
+    if mode == "planned" and not args.quiet:
+        print("提示：计划搜索较慢，可加 --quiet 减少输出。")
+    play_agent(state, agent, quiet=args.quiet)
+    _pause_before_exit()
 
 
 def main() -> None:
@@ -312,159 +403,13 @@ def main() -> None:
         help="仅 planned：模拟深度硬顶（默认用剩余回合数）",
     )
     args = parser.parse_args()
-
-    if args.map_size is not None:
-        if not (8 <= args.map_size <= 12):
-            parser.error("--map-size 必须在 8~12 之间")
-        map_size = args.map_size
-    elif args.gui:
-        map_size = 10
-    else:
-        print("欢迎来到简化文明。")
-        map_size = prompt_map_size()
-
-    if args.play is not None:
-        mode = args.play
-    elif args.gui:
-        mode = "human"
-    else:
-        mode = prompt_play_mode()
-    cfg = GameConfig(map_size=map_size, total_turns=args.turns, seed=args.seed)
-    state = GameState(cfg)
-
-    if args.gui:
-        if run_pygame_game is None:
-            parser.error(
-                "图形界面需要 Pygame。请执行: python -m pip install pygame"
-                "（Python 3.14 请用: python -m pip install pygame-ce）"
-            )
-        print("正在启动 Pygame 图形界面…")
-        agent_for_gui: object | None = None
-        gui_title = "简化文明"
-        if mode != "human":
-            if args.agent_seed is not None:
-                agent_rng = random.Random(args.agent_seed)
-            elif args.seed is not None:
-                agent_rng = random.Random(args.seed + 1)
-            else:
-                agent_rng = random.Random()
-            if mode == "random":
-                agent_for_gui = RandomAgent(agent_rng)
-                gui_title = "简化文明 — 随机策略"
-            elif mode == "greedy":
-                agent_for_gui = GreedyAgent(agent_rng)
-                gui_title = "简化文明 — 贪心策略"
-            elif mode == "planned":
-                search_defaults = SearchConfig()
-                search_cfg = SearchConfig(
-                    beam=args.beam if args.beam is not None else search_defaults.beam,
-                    branch=args.branch if args.branch is not None else search_defaults.branch,
-                    max_city_candidates=(
-                        args.max_city_candidates
-                        if args.max_city_candidates is not None
-                        else search_defaults.max_city_candidates
-                    ),
-                    max_horizon=args.max_horizon,
-                )
-                agent_for_gui = PlannedSearchAgent(config=search_cfg, rng=agent_rng)
-                gui_title = "简化文明 — 计划束搜索"
-            elif mode == "learned":
-                if LearnedAgent is None:
-                    parser.error("learned 模式需要 PyTorch，请先: python -m pip install torch")
-                agent_for_gui = LearnedAgent(
-                    weights_path=args.il_weights,
-                    device=args.il_device,
-                    top_k_rerank=args.il_top_k,
-                )
-                gui_title = "简化文明 — 模仿学习"
-        try:
-            score = run_pygame_game(
-                state,
-                agent=agent_for_gui,
-                auto_delay_ms=0 if mode == "human" else max(0, args.gui_delay),
-                title=gui_title,
-                light_theme=args.light,
-                gui_scale=max(0.85, min(2.0, args.gui_scale)),
-                play_mode=mode,
-            )
-            print(f"最终得分: {score}")
-        except (KeyboardInterrupt, EOFError):
-            print("\n已中断退出。")
-            sys.exit(0)
-        return
-
-    if mode == "human":
-        print("\n每回合先选动作，结算后进入下一回合。")
-        try:
-            play(state)
-            _pause_before_exit()
-        except (KeyboardInterrupt, EOFError):
-            print("\n已中断退出。")
-            sys.exit(0)
-        return
-
-    if args.agent_seed is not None:
-        agent_rng = random.Random(args.agent_seed)
-    elif args.seed is not None:
-        agent_rng = random.Random(args.seed + 1)
-    else:
-        agent_rng = random.Random()
-
-    agent: object
-    if mode == "random":
-        agent = RandomAgent(agent_rng)
-    elif mode == "greedy":
-        agent = GreedyAgent(agent_rng)
-    elif mode == "planned":
-        search_defaults = SearchConfig()
-        search_cfg = SearchConfig(
-            beam=args.beam if args.beam is not None else search_defaults.beam,
-            branch=args.branch if args.branch is not None else search_defaults.branch,
-            max_city_candidates=(
-                args.max_city_candidates
-                if args.max_city_candidates is not None
-                else search_defaults.max_city_candidates
-            ),
-            max_horizon=args.max_horizon,
-        )
-        if search_cfg.beam < 1 or search_cfg.branch < 1 or search_cfg.max_city_candidates < 1:
-            parser.error("--beam / --branch / --max-city-candidates 必须为正整数")
-        if args.max_horizon is not None and args.max_horizon < 1:
-            parser.error("--max-horizon 必须为正整数")
-        agent = PlannedSearchAgent(config=search_cfg, rng=agent_rng)
-    elif mode == "learned":
-        if LearnedAgent is None:
-            parser.error("learned 模式需要 PyTorch，请先: python -m pip install torch")
-        agent = LearnedAgent(
-            weights_path=args.il_weights,
-            device=args.il_device,
-            top_k_rerank=args.il_top_k,
-        )
-    else:
-        raise AssertionError(f"未知自动模式: {mode}")
-
-    label = {
-        "random": "随机",
-        "greedy": "贪心",
-        "planned": "计划束搜索",
-        "learned": "模仿学习",
-    }[mode]
-    extra = ""
-    if mode == "planned" and isinstance(agent, PlannedSearchAgent):
-        c = agent.config
-        extra = (
-            f" | beam={c.beam} branch={c.branch}"
-            f" max_city={c.max_city_candidates} horizon={c.max_horizon!r}"
-        )
-    print(f"\n当前为自动模式：{label} | 地图 seed={args.seed!r}{extra}")
-    if mode == "planned" and not args.quiet:
-        print("提示：计划搜索较慢，可加 --quiet 减少输出。")
     try:
-        play_agent(state, agent, quiet=args.quiet)
-        _pause_before_exit()
-    except (KeyboardInterrupt, EOFError):
-        print("\n已中断退出。")
-        sys.exit(0)
+        _run(args, parser)
+    except KeyboardInterrupt:
+        _exit_interrupted()
+    except EOFError:
+        _exit_interrupted()
+
 
 if __name__ == "__main__":
     main()

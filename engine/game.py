@@ -1,5 +1,4 @@
 from __future__ import annotations
-import copy
 import random
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, cast, Callable
@@ -62,8 +61,24 @@ class GameState:
         self._init_capital()
     # ----------------------------- 基础状态接口 -----------------------------
     def clone(self) -> "GameState":
-        """深拷贝当前状态（用于阶段二搜索前瞻模拟）。"""
-        cloned = copy.deepcopy(self)
+        """拷贝当前状态（用于搜索前瞻模拟）。
+
+        对局中地形不变，grid 与 config 共享引用；其余可变字段逐项复制。
+        """
+        cloned = GameState.__new__(GameState)
+        cloned.config = self.config
+        cloned.rng = random.Random()
+        cloned.rng.setstate(self.rng.getstate())
+        cloned.turn = self.turn
+        cloned.resources = dict(self.resources)
+        cloned.tech_unlocked = set(self.tech_unlocked)
+        cloned.grid = self.grid
+        cloned.cities = [
+            City(city_id=c.city_id, x=c.x, y=c.y, buildings=set(c.buildings))
+            for c in self.cities
+        ]
+        cloned.pending_city_projects = list(self.pending_city_projects)
+        cloned._next_city_id = self._next_city_id
         return cloned
     @property
 

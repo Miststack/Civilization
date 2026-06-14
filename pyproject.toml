@@ -1,0 +1,26 @@
+[project]
+name = "civilization"
+version = "1.0.0"
+description = "简化文明 — 方格地图策略游戏与 AI 基线实验"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+gui = [
+    "pygame-ce>=2.5.0; python_version >= '3.14'",
+    "pygame>=2.5.0; python_version < '3.14'",
+]
+il = ["torch", "numpy"]
+dev = ["pytest>=7.0", "civilization[gui,il]"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["engine*", "agents*", "search*", "il*", "ui*"]

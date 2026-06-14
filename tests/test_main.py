@@ -6,21 +6,21 @@ from pathlib import Path
 
 import pytest
 
+from engine.actions import action_label, partition_legal
 from engine.game import GameConfig, GameState
-from main import _action_label, _partition_legal
 from engine.models import Action, ActionType, BuildingType, TechType
 
 
 def test_action_label_variants() -> None:
-    assert _action_label(Action.skip()) == "跳过本回合"
-    assert "(3, 4)" in _action_label(Action.build_city(3, 4))
-    assert "farm" in _action_label(Action.build_building(2, BuildingType.FARM))
-    assert "mining" in _action_label(Action.research(TechType.MINING))
+    assert action_label(Action.skip()) == "跳过本回合"
+    assert "(3, 4)" in action_label(Action.build_city(3, 4))
+    assert "farm" in action_label(Action.build_building(2, BuildingType.FARM))
+    assert "mining" in action_label(Action.research(TechType.MINING))
 
 
 def test_partition_legal_groups() -> None:
     s = GameState(GameConfig(8, 10, seed=0))
-    skip_a, cities, buildings, techs = _partition_legal(s)
+    skip_a, cities, buildings, techs = partition_legal(s)
     assert skip_a[0].type == ActionType.SKIP
     assert all(a.type == ActionType.BUILD_CITY for a in cities)
     assert all(a.type == ActionType.BUILD_BUILDING for a in buildings)

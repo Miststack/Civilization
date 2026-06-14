@@ -117,21 +117,27 @@ def slot_summary(path: Path | str) -> Optional[Dict[str, Any]]:
     target = Path(path)
     if not target.is_file():
         return None
-    data = json.loads(target.read_text(encoding="utf-8"))
-    cities = data.get("cities", [])
-    resources = data.get("resources", {})
-    techs = data.get("tech_unlocked", [])
-    buildings = sum(len(c.get("buildings", [])) for c in cities)
-    if "score" in data:
-        score = int(data["score"])
-    else:
-        res_sum = sum(int(resources.get(k, 0)) for k in ("food", "wood", "ore", "science"))
-        score = 20 * len(cities) + 5 * buildings + 8 * len(techs) + res_sum // 4
-    return {
-        "turn": int(data.get("turn", 1)),
-        "score": score,
-        "cities": len(cities),
-        "buildings": buildings,
-        "map_size": int(data["config"]["map_size"]),
-        "saved_at": data.get("saved_at", ""),
-    }
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, ValueError, UnicodeDecodeError):
+        return None
+    try:
+        cities = data.get("cities", [])
+        resources = data.get("resources", {})
+        techs = data.get("tech_unlocked", [])
+        buildings = sum(len(c.get("buildings", [])) for c in cities)
+        if "score" in data:
+            score = int(data["score"])
+        else:
+            res_sum = sum(int(resources.get(k, 0)) for k in ("food", "wood", "ore", "science"))
+            score = 20 * len(cities) + 5 * buildings + 8 * len(techs) + res_sum // 4
+        return {
+            "turn": int(data.get("turn", 1)),
+            "score": score,
+            "cities": len(cities),
+            "buildings": buildings,
+            "map_size": int(data["config"]["map_size"]),
+            "saved_at": data.get("saved_at", ""),
+        }
+    except (KeyError, TypeError, ValueError):
+        return None

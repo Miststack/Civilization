@@ -80,3 +80,46 @@ def test_heuristic_rerank_picks_legal_action(tmp_path) -> None:
     )
     agent = LearnedAgent(weights_path=weights, device="cpu", top_k_rerank=3)
     assert agent.choose(state) in legal
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("torch") is None,
+    reason="需要 PyTorch",
+)
+def test_expand_rerank_includes_heuristic_branch() -> None:
+    from il.action_value import build_rerank_candidates, pick_best_rerank, rerank_value
+    from search.prune import rank_actions_for_expansion
+
+    state = GameState(GameConfig(10, 30, seed=5))
+    legal = state.legal_actions()
+    heuristic_top = rank_actions_for_expansion(state, legal, branch_limit=3, max_city_candidates=13)
+    model_indices = [0]
+    pool = build_rerank_candidates(state, legal, model_indices, pool_size=3)
+    pool_indices = {action_to_index(a) for a in pool}
+    assert action_to_index(heuristic_top[0]) in pool_indices
+    picked = pick_best_rerank(state, pool)
+    assert picked in legal
+    assert rerank_value(state, picked) >= rerank_value(state, pool[0])
+
+
+def test_high_confidence_tie_rerank_keeps_model_argmax_when_clear() -> None:
+    import torch
+
+    from il.action_value import choose_reranked_action
+
+    state = GameState(GameConfig(8, 10, seed=0))
+    legal = state.legal_actions()
+    action_dim = max(action_to_index(a) for a in legal) + 1
+    logits = torch.full((action_dim,), -10.0)
+    mask = torch.zeros(action_dim)
+    for action in legal:
+        idx = action_to_index(action)
+        mask[idx] = 1.0
+        logits[idx] = 0.0
+    best_action = legal[0]
+    best_idx = action_to_index(best_action)
+    logits[best_idx] = 5.0
+    picked = choose_reranked_action(
+        state, legal, logits, mask, top_k=5, max_prob=0.9, tie_margin=0.05
+    )
+    assert action_to_index(picked) == best_idx

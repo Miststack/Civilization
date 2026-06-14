@@ -177,7 +177,7 @@ def main() -> None:
                 },
                 eval_tmp_path,
             )
-            agent = LearnedAgent(weights_path=eval_tmp_path, device=str(device), top_k_rerank=1)
+            agent = LearnedAgent(weights_path=eval_tmp_path, device=str(device), top_k_rerank=8)
             game_mean = evaluate_agent(agent, range(min(20, args.eval_seeds)), map_size, turns)
             print(f"         game_score({min(20, args.eval_seeds)} seeds)={game_mean:.1f}")
             if game_mean > best_game_score:
@@ -213,7 +213,7 @@ def main() -> None:
     )
     print(f"已保存权重 -> {out_path} (best val_acc={best_val_acc:.3f}, game_score={best_game_score:.1f})")
 
-    agent = LearnedAgent(weights_path=out_path, device=str(device))
+    agent = LearnedAgent(weights_path=out_path, device=str(device), top_k_rerank=8)
     eval_mean = evaluate_agent(agent, range(args.eval_seeds), map_size, turns)
     print(f"评估 {args.eval_seeds} 局平均终局分: {eval_mean:.1f}")
 

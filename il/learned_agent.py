@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Optional
 
 import torch
 import torch.nn.functional as F
 
 from engine.game import GameState
-from il.action_value import pick_best_by_heuristic
+from il.action_value import choose_reranked_action
 from il.encoding import action_to_index, encode_state, index_to_action, legal_action_mask
 from il.model import PolicyNet
 from engine.models import Action
@@ -16,7 +16,7 @@ from engine.models import Action
 class LearnedAgent:
     """
     模仿学习策略：
-    - top_k_rerank：在模型 top-k 候选中用 score() 单步增量重排（提分关键）
+    - top_k_rerank：高置信时在 logits 接近的 top-k 内用前瞻值打破平局；低置信时扩大候选池
     - fallback_agent：模型置信度过低时委托 Greedy
     """
 
@@ -58,24 +58,6 @@ class LearnedAgent:
             self._fallback = GreedyAgent(None)
         return self._fallback
 
-    def _top_k_action_indices(self, logits: torch.Tensor, mask: torch.Tensor, k: int) -> list[int]:
-        masked = logits.masked_fill(mask < 0.5, -1e9)
-        k = min(k, int((mask > 0.5).sum().item()))
-        if k <= 0:
-            return [int(masked.argmax(dim=1).item())]
-        top = torch.topk(masked, k=k, dim=1)
-        return [int(i) for i in top.indices[0].tolist()]
-
-    def _indices_to_actions(self, indices: Sequence[int], legal: list[Action]) -> list[Action]:
-        seen: set[int] = set()
-        out: list[Action] = []
-        for idx in indices:
-            if idx in seen:
-                continue
-            seen.add(idx)
-            out.append(index_to_action(idx, legal))
-        return out
-
     def choose(self, state: GameState) -> Action:
         legal = state.legal_actions()
         x = torch.tensor(encode_state(state), dtype=torch.float32, device=self.device).unsqueeze(0)
@@ -94,6 +76,11 @@ class LearnedAgent:
                 idx = int(masked_logits.argmax(dim=1).item())
                 return index_to_action(idx, legal)
 
-            top_indices = self._top_k_action_indices(logits, mask, self.top_k_rerank)
-            candidates = self._indices_to_actions(top_indices, legal)
-            return pick_best_by_heuristic(state, candidates)
+            return choose_reranked_action(
+                state,
+                legal,
+                logits[0],
+                mask[0],
+                top_k=self.top_k_rerank,
+                max_prob=max_prob,
+            )

@@ -37,6 +37,12 @@ def test_slot_summary_exists(tmp_path: Path) -> None:
     assert meta["map_size"] == 8
 
 
+def test_slot_summary_corrupt_file(tmp_path: Path) -> None:
+    path = tmp_path / "bad.json"
+    path.write_text("{not json", encoding="utf-8")
+    assert slot_summary(path) is None
+
+
 def test_state_from_dict_rejects_bad_version() -> None:
     with pytest.raises(ValueError, match="版本"):
         state_from_dict({"version": 99, "config": {"map_size": 8, "total_turns": 10, "seed": 0}})
