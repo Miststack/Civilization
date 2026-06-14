@@ -102,6 +102,10 @@ def test_expand_rerank_includes_heuristic_branch() -> None:
     assert rerank_value(state, picked) >= rerank_value(state, pool[0])
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("torch") is None,
+    reason="需要 PyTorch",
+)
 def test_high_confidence_tie_rerank_keeps_model_argmax_when_clear() -> None:
     import torch
 

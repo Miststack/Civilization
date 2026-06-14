@@ -53,4 +53,10 @@ def test_main_learned_missing_weights_exits_cleanly() -> None:
         timeout=30,
     )
     assert proc.returncode == 2
-    assert "未找到模型权重" in proc.stderr + proc.stdout or "nonexistent" in proc.stderr + proc.stdout
+    output = proc.stderr + proc.stdout
+    assert (
+        "未找到模型权重" in output
+        or "nonexistent" in output
+        or "PyTorch" in output
+        or "torch" in output
+    )
