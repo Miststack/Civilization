@@ -68,7 +68,9 @@ py main.py
 | 随机策略自动对局                          | `python main.py --map-size 10 --turns 30 --seed 0 --play random --quiet`                      |
 | Greedy 规则 baseline 自动对局           | `python main.py --map-size 10 --turns 30 --seed 0 --play greedy --quiet`                      |
 | 计划束搜索自动对局（推荐加 `--quiet`）          | `python main.py --map-size 10 --turns 30 --seed 0 --play planned --quiet`                     |
-| 模仿学习自动对局（需先训练 `data/il_policy.pt`） | `python main.py --map-size 10 --turns 30 --seed 0 --play learned --quiet`                     |
+| 模仿学习自动对局（需先训练 `data/il_policy.pt`） | `python main.py --map-size 10 --turns 30 --seed 0 --play learned --il-top-k 8 --quiet`     |
+| 批量 benchmark 写 CSV                    | `python scripts/benchmark.py --agents learned --seeds 0-99 --il-top-k 8`                   |
+| 困难 seed 定向 DAgger                    | `python -m il.improve_hard`                                                                |
 | **Pygame 图形界面（手动）**              | `python main.py --gui --map-size 10 --turns 30 --seed 42 --play human`                        |
 | **快捷启动图形界面**（默认 10×10 / 30 回合） | `python run_gui.py`                                                                           |
 | 图形界面 + 浅色主题                        | `python run_gui.py --light` 或 `python main.py --gui --light --map-size 10 --play human`      |
@@ -87,7 +89,7 @@ py main.py
 - `--quiet`：自动模式下减少打印。  
 - `--agent-seed`：随机体 / 贪心平局随机源；计划搜索为确定性排序，此参数仅保留接口兼容。  
 - **仅 `planned`**：`--beam`（束宽，默认 11）、`--branch`（分支上限，默认 6）、`--max-city-candidates`（建城 top-K，默认 13）、`--max-horizon`（模拟深度上限，默认用剩余回合数）。  
-- **仅 `learned`**：`--il-weights`（权重路径，默认 `data/il_policy.pt`）、`--il-device`（`cuda` / `cpu`）、`--il-top-k`（top-k 启发式重排，默认 1）。
+- **仅 `learned`**：`--il-weights`（默认 `data/il_policy.pt`）、`--il-device`（`cuda` / `cpu`）、`--il-top-k`（推理重排，**推荐 8**，默认 1 即纯 argmax）。
 - **图形界面**：`--gui` 启用 Pygame 窗口；`--gui-delay` 旁观模式每回合间隔毫秒（默认 450）；`--light` 浅色主题；`--gui-scale` 界面缩放（0.85～2.0，默认 1.0）。需先 `python -m pip install pygame`（**Python 3.14 请用 `pygame-ce`**）。
 
 不加参数时：先询问地图边长，再询问游戏方式（含「计划束搜索」），然后进入对局。
@@ -126,16 +128,19 @@ python run_gui.py --play greedy --gui-delay 600
 | `F5` | 快速存档（槽位 0） |
 | `F9` | 快速读档（槽位 0） |
 | `T` | 切换深/浅色主题 |
+| `Z` | 撤销上一步（手动模式） |
+| `H` | 动作历史面板 |
+| `N` | 旁观模式单步推进 |
 | `Esc` | 关闭存档菜单；否则退出 |
 
-侧栏还提供 **存档 / 读档 / 主题** 按钮；存档菜单内按 `0`～`3` 选择槽位（`Esc` 取消）。
+侧栏还提供 **存档 / 读档 / 主题 / 设置** 按钮；存档菜单内按 `0`～`3` 选择槽位（`Esc` 取消）。GUI 偏好（主题、缩放）持久化于 `saves/gui_prefs.json`。
 
 **存档**
 
-- 实现：`engine/save.py`，JSON 格式，版本号 `SAVE_VERSION = 1`
+- **图形界面**：`engine/save.py` 四槽 JSON 存档（F5/F9）
+- **终端模式**：主菜单 **5** 快速存档、**6** 快速读档（`engine/terminal_save.py`）
 - 路径：`saves/quicksave.json`（槽位 0）、`saves/slot1.json`～`slot3.json`
-- `saves/` 目录已加入 `.gitignore`，本地存档不会进入 Git
-- **仅图形界面**支持存读档；终端 `play()` 模式暂无存档
+- `saves/` 已加入 `.gitignore`
 
 **主题**
 
@@ -188,12 +193,15 @@ python main.py --seed 0 --play planned --map-size 10 --turns 30 --quiet
 |-------------|------|
 | `main.py` | 入口、命令行与终端交互；`--gui` 桥接图形界面 |
 | `run_gui.py` | 图形界面快捷入口（默认 10×10、30 回合、手动模式） |
+| `pyproject.toml` | 包元数据与可选依赖分组（`gui` / `il` / `dev`） |
+| `.github/workflows/ci.yml` | GitHub Actions：Python 3.12 + pytest + numpy |
 | `ui/` | Pygame 图形界面（见下表） |
-| `engine/` | 游戏引擎：`game.py`、`map.py`、`models.py`、`save.py`（JSON 存档） |
-| `agents/` | 基线智能体：`random.py`、`greedy.py` |
+| `engine/` | 游戏引擎：`game.py`、`map.py`、`models.py`、`save.py`、`actions.py`、`terminal_save.py` |
+| `agents/` | 基线智能体 + `factory.py` 统一构造 |
 | `search/` | 计划束搜索：`agent.py`、`rules.py`、`eval.py`、`prune.py` |
-| `il/` | 模仿学习：编码、录数据、训练、`LearnedAgent` |
-| `saves/` | 图形界面本地存档（自动生成，不入 Git） |
+| `il/` | 模仿学习：编码、训练、DAgger、`LearnedAgent`、`improve_hard` |
+| `scripts/` | `benchmark.py`（批量实验）、`gen_section9.py`（报告表格生成） |
+| `saves/` | 图形界面本地存档与 GUI 偏好（自动生成，不入 Git） |
 | `data/` | IL 本地生成数据（见 `data/README.md`，不入 Git） |
 | `docs/` | 演示 GIF（`demos/`）、实验 CSV（`experiments/`），见 `docs/README.md` |
 | `课程设计报告.md` | 课程设计报告（含 §8 实验与 §10 提交清单） |
@@ -203,9 +211,17 @@ python main.py --seed 0 --play planned --map-size 10 --turns 30 --quiet
 
 | 文件 | 说明 |
 |------|------|
-| `pygame_app.py` | 主窗口：地图、侧栏、交互、存档菜单、终局遮罩 |
+| `app.py` | `CivGameApp` 主类（Mixin 组合） |
+| `pygame_app.py` | 兼容入口，re-export `CivGameApp` / `run_pygame_game` |
+| `app_gameplay.py` | 对局逻辑：动作、智能体、设置、存档 |
+| `app_input.py` | 按钮、点击、滚轮 |
+| `app_draw.py` | 地图、侧栏、菜单、遮罩绘制 |
+| `app_loop.py` | 主循环与事件分发 |
+| `gui_types.py` | 常量、`InteractionMode`、`Button` 等 |
+| `gui_format.py` | 字体与动作/建筑文本格式化 |
+| `prefs.py` | 主题与缩放偏好持久化 |
 | `theme.py` | 深/浅色主题常量、中文标签、布局尺寸 |
-| `draw.py` | 圆角矩形、按钮、资源行、科技 chip 等绘制工具 |
+| `draw.py` | 圆角矩形、按钮、资源行、科技 chip 等 |
 | `assets.py` | 程序化地形/城市/资源图标缓存 |
 | `particles.py` | 建城/建造/研究动作粒子反馈 |
 | `sharp.py` | Windows 高 DPI 清晰显示 |
@@ -233,16 +249,25 @@ python -m il.run_pipeline --seeds 100 --epochs 50
 ```bash
 python -m il.record_expert --seeds 100 --out data/il_expert.npz
 python -m il.train --data data/il_expert.npz --out data/il_policy.pt
-python main.py --map-size 10 --turns 30 --seed 0 --play learned --quiet
+python main.py --map-size 10 --turns 30 --seed 0 --play learned --il-top-k 8 --quiet
+```
+
+**提分流程**（DAgger 与困难 seed 定向采集）：
+
+```bash
+python -m il.improve              # 通用 DAgger + 重训
+python -m il.improve_hard         # 从 CSV 筛落后 seed → 定向 DAgger → 微调（推荐）
 ```
 
 | 模块 | 说明 |
 |------|------|
 | `il/record_expert.py` | 用 `PlannedSearchAgent` 录制 `(state, action)` 专家数据 |
-| `il/record_dagger.py` | DAgger 迭代采集（进阶） |
-| `il/train.py` | 训练 `PolicyNet` 并保存权重 |
-| `il/improve.py` | 评估与迭代改进脚本 |
-| `il/learned_agent.py` | 加载权重对局的 `LearnedAgent` |
+| `il/record_dagger.py` | DAgger 采集（支持 `--seed-list` 指定 seed） |
+| `il/train.py` | 训练 `PolicyNet`；`--select-by game_score` 按对局得分选模 |
+| `il/improve.py` | 一键 DAgger + 重训 |
+| `il/improve_hard.py` | 困难 seed 定向 DAgger + 微调 + benchmark |
+| `il/hard_seeds.py` | 从 `seed_scores.csv` 筛选 `planned − learned` 落后的 seed |
+| `il/learned_agent.py` | 加载权重对局；`top_k_rerank` 推理重排 |
 
 训练产物默认写入 `data/`，该目录已在 `.gitignore` 中排除。
 
@@ -250,18 +275,28 @@ python main.py --map-size 10 --turns 30 --seed 0 --play learned --quiet
 
 ## 实验数据 `docs/experiments/seed_scores.csv`
 
-在 **10×10 地图、30 回合** 下，对 **seed 0～99** 记录三种自动策略的终局 `score()`：
+在 **10×10 地图、30 回合** 下，对 **seed 0～99** 记录四种自动策略的终局 `score()`：
 
 | 列名              | 策略                                                                       |
 |-----------------|--------------------------------------------------------------------------|
 | `random_score`  | `RandomAgent`                                                            |
 | `greedy_score`  | `GreedyAgent`                                                            |
 | `planned_score` | `PlannedSearchAgent`（默认 `beam=11`, `branch=6`, `max_city_candidates=13`） |
+| `learned_score` | `LearnedAgent`（需本地 `data/il_policy.pt`；推理推荐 `--il-top-k 8`）              |
 
-文件编码为 **UTF-8（含 BOM）**，可用 Excel 或 pandas 直接打开。复现某一 seed 的 planned 得分示例：
+**当前汇总（N=100）**：Random **467.1** · Greedy **534.6** · Planned **635.6** · Learned **634.1**（与 Planned 差 **1.5** 分）。
+
+批量复现：
+
+```bash
+python scripts/benchmark.py --agents random,greedy,planned,learned --seeds 0-99 --il-top-k 8
+```
+
+文件编码为 **UTF-8（含 BOM）**，可用 Excel 或 pandas 直接打开。复现某一 seed 示例：
 
 ```bash
 python main.py --map-size 10 --turns 30 --seed 42 --play planned --quiet
+python main.py --map-size 10 --turns 30 --seed 42 --play learned --il-top-k 8 --quiet
 ```
 
 ---
@@ -284,7 +319,14 @@ python -m pip install pytest
 python -m pytest tests -v
 ```
 
-当前共 **62** 项用例（**10** 个 `test_*.py`），覆盖：游戏规则、**JSON 存档往返**（`test_save.py`）、`main` 子进程冒烟（`human` / `random` / `greedy` / `planned`）、搜索模块、计划智能体与 IL 编码等。**无 GUI 自动化测试**（需人工启动 `--gui` 验证）。**测试文件由 AI 辅助编写**，本人负责核对断言与实现是否一致；详见 `课程设计报告.md` §3.2。
+当前共 **80** 项用例（**13** 个 `test_*.py`），覆盖：游戏规则、JSON 存档、终端存读档、智能体工厂、GUI 偏好、搜索模块、IL 编码与困难 seed 筛选、`main` 子进程冒烟（`human` / `random` / `greedy` / `planned`）等。**无 GUI 自动化测试**（需人工 `--gui` 验证）。**测试文件由 AI 辅助编写**，详见 `课程设计报告.md` §3.2。
+
+**CI**（`.github/workflows/ci.yml`）：Ubuntu + Python 3.12，安装 `pytest` + `numpy`；无 torch 时跳过 2 项 IL 权重测试。本地完整验证：
+
+```bash
+python -m pip install pytest numpy torch
+python -m pytest tests -v
+```
 
 ---
 
@@ -292,7 +334,7 @@ python -m pytest tests -v
 
 | 版本 | 要点 |
 |------|------|
-| **v1.0.0** | 终端 + Pygame GUI、JSON 四槽存档、深/浅色主题、局内设置；Random / Greedy / Planned / Learned 策略；100 seed 基线实验（`docs/experiments/seed_scores.csv`） |
+| **v1.0.0** | 终端 + Pygame GUI、JSON 四槽存档、深/浅色主题、局内设置；Random / Greedy / Planned / Learned 策略；100 seed 四策略实验（`docs/experiments/seed_scores.csv`）；80 项 pytest；GitHub CI |
 
 历史 Release 见 [GitHub Releases](https://github.com/Miststack/Civilization/releases)。
 
